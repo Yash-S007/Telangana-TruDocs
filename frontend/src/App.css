@@ -598,6 +598,13 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   margin-left: 8px;
 }
 
+/* Long 22A survey lists scroll inside their box instead of stretching the page. */
+.survey-scroll { max-height: 480px; overflow: auto; }
+.survey-scroll thead th { position: sticky; top: 0; z-index: 1; }
+.portal-table-wrapper a { color: var(--primary); font-weight: 600; text-decoration: none; }
+.portal-table-wrapper a:hover { text-decoration: underline; }
+.inline-spinner { display: inline-block; vertical-align: -2px; width: 13px; height: 13px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.65s linear infinite; }
+
 /* ---------- mobile web (phones, ≤ 600px) ---------- */
 @media (max-width: 600px) {
   /* iPhones zoom the whole page in on any input whose text is smaller than 16px. */
@@ -611,4 +618,5 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   .portal-table-wrapper .stack-on-mobile td { border: none; padding: 7px 0; display: flex; justify-content: space-between; gap: 16px; text-align: right; }
   .portal-table-wrapper .stack-on-mobile td + td { border-top: 1px solid #eee; }
   .stack-on-mobile td::before { content: attr(data-label); font-weight: 600; color: var(--text-muted); text-align: left; flex-shrink: 0; }
+  .survey-scroll { max-height: 70vh; }
 }

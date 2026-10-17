@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.routers import adangal, ghmc, health, market_value, pattadar_passbook
+from backend.routers import adangal, ghmc, health, market_value, pattadar_passbook, prohibited_lands
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ app.include_router(ghmc.router)
 app.include_router(adangal.router)
 app.include_router(pattadar_passbook.router)
 app.include_router(market_value.router)
+app.include_router(prohibited_lands.router)
 
 # Static frontend mount MUST come last so /api/* routes above always win.
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
