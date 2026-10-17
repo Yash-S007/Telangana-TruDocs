@@ -892,6 +892,187 @@ function SurveyList({ location, kind }) {
   )
 }
 
+// shortcut: Esri's keyless World Imagery (what TGRAC's own viewer uses) is fine for testing;
+// before going live, confirm Esri's commercial terms or swap in a licensed provider here.
+const SATELLITE_EXPORT = 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export'
+const MAP_W = 640
+const MAP_H = 480
+
+// Web Mercator metres, the projection satellite imagery is drawn in.
+function merc([lon, lat]) {
+  return [(lon * 20037508.34) / 180, Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) * 6378137]
+}
+
+function SurveyMap({ result }) {
+  // How many times Esri refused the picture; each refusal halves its pixel count.
+  const [coarser, setCoarser] = useState(0)
+  const own = result.rings.flat().map(merc)
+  const xs = own.map((p) => p[0])
+  const ys = own.map((p) => p[1])
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
+  // Frame the parcel with room for its neighbours, at the picture's 4:3 shape.
+  const pad = Math.max(x1 - x0, y1 - y0) * 0.6
+  // Esri answers HTTP 500 when asked for a picture sharper than it holds for that place:
+  // 0.3 m a pixel near Hyderabad, only 0.6 m or coarser in much of rural Telangana. So a small
+  // parcel gets at least a 200 m frame, the picture starts at 0.31 m/px, and each refusal
+  // retries the same frame with half the pixels (0.62, 1.24, then 2.48 m/px).
+  let halfW = Math.max((x1 - x0) / 2 + pad, 100)
+  let halfH = (y1 - y0) / 2 + pad
+  if (halfW / halfH < MAP_W / MAP_H) halfW = (halfH * MAP_W) / MAP_H
+  else halfH = (halfW * MAP_H) / MAP_W
+  const box = [(x0 + x1) / 2 - halfW, (y0 + y1) / 2 - halfH, (x0 + x1) / 2 + halfW, (y0 + y1) / 2 + halfH]
+  const imageW = Math.round(Math.min(MAP_W * 2, (2 * halfW) / 0.31) / 2 ** coarser)
+  const toPx = (lonLat) => {
+    const [x, y] = merc(lonLat)
+    return [((x - box[0]) / (box[2] - box[0])) * MAP_W, ((box[3] - y) / (box[3] - box[1])) * MAP_H]
+  }
+  const path = (rings) => rings.map((r) => `M${r.map((p) => toPx(p).map((v) => v.toFixed(1)).join(',')).join('L')}Z`).join('')
+  const middle = (rings) => {
+    const pts = rings.flat().map(toPx)
+    const px = pts.map((p) => p[0])
+    const py = pts.map((p) => p[1])
+    return [(Math.min(...px) + Math.max(...px)) / 2, (Math.min(...py) + Math.max(...py)) / 2]
+  }
+  const image = `${SATELLITE_EXPORT}?${new URLSearchParams({
+    bbox: box.map((v) => v.toFixed(2)).join(','),
+    bboxSR: '3857',
+    imageSR: '3857',
+    size: `${imageW},${Math.round((imageW * MAP_H) / MAP_W)}`, // up to twice the drawing size, sharp on phones
+    format: 'jpg',
+    f: 'image',
+  })}`
+  const [ownX, ownY] = middle(result.rings)
+  const labelCorners = result.corners.length <= 20 // beyond that the labels pile on top of each other
+  return (
+    <figure className="survey-map">
+      <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} role="img" aria-label={`Satellite map of survey number ${result.survey_no}, its boundary and corner points`}>
+        <image href={image} width={MAP_W} height={MAP_H} preserveAspectRatio="none"
+          onError={() => setCoarser((c) => Math.min(c + 1, 3))} />
+        {result.neighbours.map((n, i) => {
+          const [lx, ly] = middle(n.rings)
+          return (
+            <g key={i} className="nb">
+              <path d={path(n.rings)} />
+              {n.survey_no && <text x={lx} y={ly}>{n.survey_no}</text>}
+            </g>
+          )
+        })}
+        <path d={path(result.rings)} className="own-halo" />
+        <path d={path(result.rings)} className="own" />
+        <text x={ownX} y={ownY} className="own-label">{result.survey_no}</text>
+        {result.corners.map((c) => {
+          const [px, py] = toPx([c.lon, c.lat])
+          return (
+            <g key={c.label} className="corner">
+              <circle cx={px} cy={py} r="7" />
+              {labelCorners && <text x={px + 8} y={py - 8}>{c.label}</text>}
+            </g>
+          )
+        })}
+      </svg>
+      <figcaption>Imagery: Esri, Vantor, Earthstar Geographics · Boundaries: TGRAC village maps</figcaption>
+    </figure>
+  )
+}
+
+function SurveyMapResult({ result }) {
+  const { acres, guntas } = result.area_ac_gts
+  const { lat, lon } = result.centre
+  const older = result.map_version === '2.5m'
+  return (
+    <div className="result success survey-result">
+      <p className="result-status found">
+        <span className="result-icon">✓</span> Survey No. {result.survey_no} · {result.village}, {result.mandal}, {result.district}
+      </p>
+      <SurveyMap key={`${result.village}-${result.survey_no}`} result={result} />
+      <dl className="field-list">
+        <div className="field-row">
+          <dt>Area (approx.)</dt>
+          <dd>{acres} acres {guntas} guntas · {result.area_sq_m.toLocaleString('en-IN')} m²</dd>
+        </div>
+        {result.remarks && (
+          <div className="field-row"><dt>Land note</dt><dd>{result.remarks}</dd></div>
+        )}
+        <div className="field-row"><dt>Centre</dt><dd>{lat}, {lon}</dd></div>
+        <div className="field-row">
+          <dt>Map version</dt>
+          <dd>{older ? 'Older 2.5 m map' : '30 cm map, matched to sharp satellite imagery'}</dd>
+        </div>
+      </dl>
+      <div className="corner-scroll">
+        <table className="corner-table">
+          <thead><tr><th>Corner</th><th>Latitude</th><th>Longitude</th></tr></thead>
+          <tbody>
+            {result.corners.map((c) => (
+              <tr key={c.label}><td>{c.label}</td><td>{c.lat}</td><td>{c.lon}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <a className="maps-link" href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`} target="_blank" rel="noopener noreferrer">
+        <i className="ti ti-map-pin" /> Open in Google Maps
+      </a>
+      <p className="survey-note">
+        {older && 'This village is only on the older map, so the outline can sit 20–50 m from the real spot; its shape and area are still a good guide. '}
+        Boundary traced from digitised government village maps. Approximate, for reference only, not a legal survey.
+      </p>
+    </div>
+  )
+}
+
+function SurveyMapForm() {
+  const { post, get } = useApi()
+  const { result, error, loading, run, setError, reset } = useFormState()
+  const [village, setVillage] = useState(null)
+  const [surveyOptions, setSurveyOptions] = useState([])
+  const [surveyNo, setSurveyNo] = useState('')
+  const [surveyLoading, setSurveyLoading] = useState(false)
+  // A village's first survey list takes 15-25s, so a list for a village the user has
+  // since changed must not land under the new one.
+  const picked = useRef(null)
+
+  async function onVillage(v) {
+    picked.current = v
+    setVillage(v)
+    setSurveyOptions([]); setSurveyNo('')
+    setSurveyLoading(Boolean(v))
+    reset()
+    if (!v) return
+    try {
+      const options = await get(`/api/survey-map/survey-options/${encodeURIComponent(v.dmv)}`)
+      if (picked.current === v) setSurveyOptions(options)
+    } catch (err) {
+      if (picked.current === v) setError(err.message)
+    } finally {
+      if (picked.current === v) setSurveyLoading(false)
+    }
+  }
+
+  function submit(e) {
+    e.preventDefault()
+    if (!village) { setError('Please select a village first.'); return }
+    run(() => post('/api/survey-map/parcel', { dmv: village.dmv, survey_no: surveyNo }))
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Field label="Village / Mandal" required>
+        <VillageSearch portal="survey-map" onSelect={onVillage} />
+      </Field>
+      <Field label="Survey Number" required hint={surveyLoading ? 'A village’s first look-up can take up to a minute' : ''}>
+        <SelectLoading loading={surveyLoading} value={surveyNo} onChange={(e) => { setSurveyNo(e.target.value); reset() }} disabled={!village} required>
+          <option value="">{surveyLoading ? 'Loading survey numbers…' : village ? 'Select Survey Number' : 'Select village first'}</option>
+          {surveyOptions.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </SelectLoading>
+      </Field>
+      <button type="submit" disabled={loading || !village || !surveyNo} className={loading ? 'btn-loading' : ''}>
+        {loading ? <><span className="btn-spinner" /> Drawing map…</> : 'Show Survey Map'}
+      </button>
+      {result ? <SurveyMapResult result={result} /> : <ResultBox error={error} />}
+    </form>
+  )
+}
+
 // ---------- page structure ----------
 const DOCUMENT_TYPES = [
   {
@@ -948,6 +1129,15 @@ const DOCUMENT_TYPES = [
     description: 'Official lists of properties barred from registration under Section 22-A, for agricultural and non-agricultural land by village, with the government orders behind each entry.',
     Form: ProhibitedLandsForm,
   },
+  {
+    id: 'survey-map',
+    icon: 'ti ti-map-search',
+    navLabel: 'Survey Map',
+    tag: 'Land survey',
+    heading: 'Survey Map',
+    description: 'A survey number’s boundary on a satellite map, with its corner GPS points and area, by village and survey number.',
+    Form: SurveyMapForm,
+  },
 ]
 
 function Skyline() {
@@ -980,8 +1170,8 @@ export default function App() {
       },
       { rootMargin: '-35% 0px -50% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
     )
-    const onScroll = () => { if (atBottom()) setActiveId(lastId) }
     sections.forEach((s) => observer.observe(s))
+    const onScroll = () => { if (atBottom()) setActiveId(lastId) }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       observer.disconnect()
@@ -1036,7 +1226,7 @@ export default function App() {
 
         <h1>Telangana's own <em>property records</em> engine.</h1>
         <p className="tagline">
-          Search property tax, mutation, land records, market values, and prohibited lands — verified live from GHMC, CCLA, and IGRS, Telangana.
+          Search property tax, mutation, land records, market values, prohibited lands, and survey maps — verified live from GHMC, CCLA, IGRS, and TGRAC, Telangana.
         </p>
 
         <div className="stat-bar">

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from backend.core.hierarchy import _adangal, _market_value, _pattadar, _prohibited_lands
+from backend.core.hierarchy import _adangal, _market_value, _pattadar, _prohibited_lands, _survey_map
 
 router = APIRouter()
 
@@ -14,5 +14,6 @@ def health():
             "adangal_villages": len(_adangal()),
             "market_value_villages": len(_market_value()),
             "prohibited_lands_villages": len(_prohibited_lands()),
+            "survey_map_villages": len(_survey_map()),
         },
     }

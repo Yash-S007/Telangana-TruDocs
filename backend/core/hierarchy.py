@@ -43,6 +43,23 @@ def _prohibited_lands() -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+@lru_cache(maxsize=1)
+def _survey_map() -> list[dict]:
+    path = _DATA_DIR / "survey_map_villages.json"
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def _survey_map_by_dmv() -> dict[str, dict]:
+    return {r["dmv"]: r for r in _survey_map()}
+
+
+def survey_map_village(dmv: str) -> dict | None:
+    return _survey_map_by_dmv().get(dmv)
+
+
 def search_pattadar_villages(q: str, limit: int = 15) -> list[dict]:
     if len(q) < 2:
         return []
@@ -79,6 +96,16 @@ def search_prohibited_lands_villages(q: str, limit: int = 15) -> list[dict]:
         return []
     q_lower = q.lower()
     data = _prohibited_lands()
+    prefix = [r for r in data if r["village"].lower().startswith(q_lower)]
+    rest = [r for r in data if not r["village"].lower().startswith(q_lower) and q_lower in r["village"].lower()]
+    return (prefix + rest)[:limit]
+
+
+def search_survey_map_villages(q: str, limit: int = 15) -> list[dict]:
+    if len(q) < 2:
+        return []
+    q_lower = q.lower()
+    data = _survey_map()
     prefix = [r for r in data if r["village"].lower().startswith(q_lower)]
     rest = [r for r in data if not r["village"].lower().startswith(q_lower) and q_lower in r["village"].lower()]
     return (prefix + rest)[:limit]

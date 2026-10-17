@@ -615,6 +615,60 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 .portal-table-wrapper a { color: var(--primary); font-weight: 600; text-decoration: none; }
 .portal-table-wrapper a:hover { text-decoration: underline; }
 .inline-spinner { display: inline-block; vertical-align: -2px; width: 13px; height: 13px; margin-right: 8px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.65s linear infinite; }
+/* ---------- Survey Map result ---------- */
+.survey-map { margin: 0; background: #2b2f2c; border-bottom: 1px solid var(--border); }
+.survey-map svg { display: block; width: 100%; height: auto; }
+.survey-map .nb path { fill: none; stroke: rgba(255, 255, 255, 0.8); stroke-width: 1.2; }
+.survey-map .own-halo { fill: none; stroke: rgba(0, 0, 0, 0.55); stroke-width: 7; stroke-linejoin: round; }
+.survey-map .own { fill: rgba(207, 159, 63, 0.22); stroke: var(--accent); stroke-width: 3.5; stroke-linejoin: round; }
+.survey-map text {
+  fill: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke; /* dark outline under the letters so they read on any terrain */
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.survey-map .own-label { font-size: 20px; font-weight: 800; }
+.survey-map .corner circle { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.survey-map .corner text { text-anchor: start; }
+.survey-map figcaption { font-size: 10px; color: #d9d9d4; padding: 4px 10px; }
+
+.corner-scroll { max-height: 280px; overflow-y: auto; border-top: 1px solid var(--border); }
+.corner-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.corner-table th {
+  position: sticky;
+  top: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 8px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.corner-table td { padding: 7px 16px; border-bottom: 1px solid var(--border); }
+.corner-table td:first-child { font-weight: 700; color: var(--primary); }
+
+.maps-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 16px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+.maps-link:hover { background: var(--primary-hover); }
+.survey-note { margin: 10px 16px 14px; font-size: 12px; color: var(--text-muted); }
 
 /* ---------- mobile web (phones, ≤ 600px) ---------- */
 @media (max-width: 600px) {
@@ -634,4 +688,8 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   .field-list { grid-template-columns: 1fr; }
   .field-list dt { white-space: normal; border-right: none; padding-bottom: 2px; }
   .field-list dd { padding-top: 2px; }
+  /* The map is drawn 640 wide, so on a phone its labels need to be bigger to stay legible. */
+  .survey-map text { font-size: 22px; }
+  .survey-map .own-label { font-size: 30px; }
+  .corner-table th, .corner-table td { padding-left: 10px; padding-right: 10px; }
 }

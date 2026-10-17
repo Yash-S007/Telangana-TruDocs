@@ -11,6 +11,7 @@ Working end-to-end against the live government portals:
 - **Land Market Value (IGRS unit rates)** — fully working, no login or captcha. Outside Hyderabad: village search over a pre-scraped list (`backend/scripts/scrape_market_value_hierarchy.py`). Hyderabad: division + locality name, searched live (the portal matches the start of the name, 3+ letters). Shows only what the official page shows (land ₹/sq. yard and effective date): the portal comments out its apartment-rate column, and its apartment search returns 404.
 - **Prohibited Lands (Section 22A)** — fully working, no login or captcha (IGRS `openProhibitedProperties.htm`). Village search over a pre-scraped list (`backend/scripts/scrape_prohibited_lands_hierarchy.py`); Hyderabad is division + SRO office (non-agriculture only). Shows the official PDF for each 22-A(1) category (Waqf and Endowment aren't online on the portal either) and the survey-wise list with a link to each order. A Hyderabad SRO list is ~6,000 rows and takes the portal ~30 s, so lists are cached per process for 6 hours.
 - **Land Details Search (Bhu Bharati, agri land status)** — fully working, no login or OTP (Bhu Bharati `/knowLandStatus`). Two public search modes: by village + survey/khata number, or by passbook number + the last 4 digits of the owner's Aadhaar. The portal captcha is solved with ddddocr (`backend/core/captcha.py`), retried up to 8 times. Shows the portal's full 16-field record, including Land Status. Identical searches arriving together share one portal flow (single-flight); nothing is cached at rest, and the Aadhaar digits and captcha text are never logged.
+- **Survey Map** — fully working, no login, captcha or OTP. Pick a village and survey number to see its boundary on a satellite photo, with neighbouring survey numbers, corner GPS points (P1, P2, …), area in acres/guntas and an "Open in Google Maps" link. Boundaries come from TGRAC's public ArcGIS server (the village maps behind tgrac.telangana.gov.in/digitallandsurvey/lis): the "30 cm" copy first, and Bhunaksha's older "2.5 m" copy for the ~1 village in 4 the 30 cm copy lacks (the page says when a result is from the older map, which can be 20–50 m off). The server takes 13–60 s to find a village's parcels, so each village is fetched once and cached (public map data), and at most 2 look-ups are sent to it at a time. The village list is `backend/data/survey_map_villages.json`, rebuilt with `python -m backend.scripts.scrape_survey_map_villages`. Satellite imagery is Esri World Imagery, loaded by the browser; check Esri's terms (or swap the provider in `SATELLITE_EXPORT` in `App.jsx`) before commercial use.
 
 Not yet built: Bhu Bharati EC (no confirmed working URL found yet), TG-IGRS Encumbrance Certificate (confirmed to require citizen login + OTP — blocked on that decision).
 
@@ -44,7 +45,8 @@ Tests (parsers, validation, error mapping and single-flight — no network, synt
 
 Load tests (server running) fire N searches at the same moment at the live portals. Market value and prohibited
 lands throttle themselves to 2 portal requests a second and cache repeats for 6 hours; land details solves the
-captcha for each search, and identical searches share one flow:
+captcha for each search, and identical searches share one flow; survey map caches each village and sends
+at most 2 searches to the government map server at once:
 ```
 .venv/bin/python -m backend.scripts.load_test_market_value --base http://localhost:8000 -n 10
 .venv/bin/python -m backend.scripts.load_test_market_value --base http://localhost:8000 -n 10 --same
@@ -52,4 +54,6 @@ captcha for each search, and identical searches share one flow:
 .venv/bin/python -m backend.scripts.load_test_prohibited_lands --base http://localhost:8000 -n 10 --same
 .venv/bin/python -m backend.scripts.load_test_land_details --base http://localhost:8000 -n 10
 .venv/bin/python -m backend.scripts.load_test_land_details --base http://localhost:8000 -n 10 --same
+.venv/bin/python -m backend.scripts.load_test_survey_map --base http://localhost:8000 -n 10
+.venv/bin/python -m backend.scripts.load_test_survey_map --base http://localhost:8000 -n 10 --same
 ```
