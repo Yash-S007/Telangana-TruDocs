@@ -319,6 +319,7 @@ input, select {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 14px;
+  line-height: 1.25; /* "normal" differs between selects and inputs, so their heights drifted 2px apart */
   width: 100%;
   min-width: 0; /* a <select> can otherwise refuse to shrink below its
     widest OPTION's intrinsic content size, regardless of width:100% —
@@ -338,7 +339,17 @@ select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Safari (Mac and iPhone) ignores the padding above and draws a thin native box
+     (22-25px tall vs 43-46px inputs) unless the native look is off; the arrow is drawn here. */
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236b6f6c' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
 }
+/* Chrome's own value; Safari only dimmed disabled dropdowns through the native look. */
+select:disabled { opacity: 0.7; }
 
 input:focus, select:focus {
   outline: none;
@@ -619,4 +630,8 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   .portal-table-wrapper .stack-on-mobile td + td { border-top: 1px solid #eee; }
   .stack-on-mobile td::before { content: attr(data-label); font-weight: 600; color: var(--text-muted); text-align: left; flex-shrink: 0; }
   .survey-scroll { max-height: 70vh; }
+  /* The result's label/value list stacks so long labels don't force sideways scroll. */
+  .field-list { grid-template-columns: 1fr; }
+  .field-list dt { white-space: normal; border-right: none; padding-bottom: 2px; }
+  .field-list dd { padding-top: 2px; }
 }

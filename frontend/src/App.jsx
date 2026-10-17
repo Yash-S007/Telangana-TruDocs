@@ -55,7 +55,7 @@ function useFormState() {
     }
   }
 
-  // Clear the result when the search inputs change, so it never shows under the wrong place.
+  // Clear the result when the inputs change, so it never shows under the wrong search.
   function reset() {
     generation.current++
     setResult(null)
@@ -348,9 +348,26 @@ function PropertyTaxForm() {
   )
 }
 
-function PattadarForm() {
+// "Land Details Search" offers the portal's two public search modes. Each is its own
+// sub-form so switching mode remounts and clears the other's state.
+function LandDetailsForm() {
+  const [mode, setMode] = useState('survey')
+  return (
+    <>
+      <Field label="Search By" required>
+        <select value={mode} onChange={(e) => setMode(e.target.value)}>
+          <option value="survey">Survey / Khata number</option>
+          <option value="passbook">Passbook number + Aadhaar</option>
+        </select>
+      </Field>
+      {mode === 'survey' ? <SurveySearchForm /> : <PassbookSearchForm />}
+    </>
+  )
+}
+
+function SurveySearchForm() {
   const { post, get } = useApi()
-  const { result, error, loading, run, setError } = useFormState()
+  const { result, error, loading, run, setError, reset } = useFormState()
   const [village, setVillage] = useState(null)
   const [surveyOptions, setSurveyOptions] = useState([])
   const [khataOptions, setKhataOptions] = useState([])
@@ -363,10 +380,11 @@ function PattadarForm() {
     setVillage(v)
     setSurveyOptions([]); setKhataOptions([])
     setSurveyNo(''); setKhataId('')
+    reset()
     if (v) {
       setSurveyLoading(true)
-      try { setSurveyOptions(await get(`/api/pattadar/survey-options/${v.village_id}`)) }
-      catch {}
+      try { setSurveyOptions(await get(`/api/pattadar/survey-options/${encodeURIComponent(v.village_id)}`)) }
+      catch (err) { setError(err.message) }
       finally { setSurveyLoading(false) }
     }
   }
@@ -374,10 +392,11 @@ function PattadarForm() {
   async function onSurvey(value) {
     setSurveyNo(value)
     setKhataOptions([]); setKhataId('')
+    reset()
     if (value && village) {
       setKhataLoading(true)
-      try { setKhataOptions(await get(`/api/pattadar/khata-options/${village.village_id}?survey_no=${encodeURIComponent(value)}`)) }
-      catch {}
+      try { setKhataOptions(await get(`/api/pattadar/khata-options/${encodeURIComponent(village.village_id)}?survey_no=${encodeURIComponent(value)}`)) }
+      catch (err) { setError(err.message) }
       finally { setKhataLoading(false) }
     }
   }
@@ -413,20 +432,65 @@ function PattadarForm() {
           <input
             placeholder={village ? 'e.g. 123 or 1/2A' : 'Select village first'}
             value={surveyNo}
-            onChange={(e) => { setSurveyNo(e.target.value); setKhataOptions([]); setKhataId('') }}
+            onChange={(e) => { setSurveyNo(e.target.value); setKhataOptions([]); setKhataId(''); reset() }}
             disabled={!village}
             required
           />
         )}
       </Field>
       <Field label="Khata Number" required>
-        <SelectLoading loading={khataLoading} value={khataId} onChange={(e) => setKhataId(e.target.value)} disabled={!surveyNo} required>
+        <SelectLoading loading={khataLoading} value={khataId} onChange={(e) => { setKhataId(e.target.value); reset() }} disabled={!surveyNo} required>
           <option value="">{khataLoading ? 'Loading khata numbers…' : 'Select Khata Number'}</option>
           {khataOptions.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
         </SelectLoading>
       </Field>
       <button type="submit" disabled={loading || !village} className={loading ? 'btn-loading' : ''}>
-        {loading ? <><span className="btn-spinner" /> Fetching record…</> : 'Fetch Pattadar Details'}
+        {loading ? <><span className="btn-spinner" /> Fetching record…</> : 'Fetch Land Details'}
+      </button>
+      <ResultBox error={error} result={result} />
+    </form>
+  )
+}
+
+function PassbookSearchForm() {
+  const { post } = useApi()
+  const { result, error, loading, run, setError, reset } = useFormState()
+  const [passbookNo, setPassbookNo] = useState('')
+  const [aadhaar, setAadhaar] = useState('')
+
+  function submit(e) {
+    e.preventDefault()
+    if (!passbookNo.trim()) { setError('Please enter the passbook number.'); return }
+    if (!/^\d{4}$/.test(aadhaar)) { setError('Please enter exactly the last 4 digits of the Aadhaar number.'); return }
+    run(() => post('/api/pattadar/search-by-passbook', {
+      passbook_no: passbookNo.trim(),
+      aadhaar_last4: aadhaar,
+    }))
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Field label="Passbook (PPB) Number" required hint="On the land passbook, up to 12 characters">
+        <input
+          placeholder="e.g. 123456789012"
+          value={passbookNo}
+          onChange={(e) => { setPassbookNo(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 12)); reset() }}
+          autoComplete="off"
+          required
+        />
+      </Field>
+      <Field label="Last 4 digits of Aadhaar" required hint="Of the passbook holder">
+        <input
+          inputMode="numeric"
+          placeholder="e.g. 1234"
+          value={aadhaar}
+          onChange={(e) => { setAadhaar(e.target.value.replace(/\D/g, '').slice(0, 4)); reset() }}
+          autoComplete="off"
+          required
+        />
+      </Field>
+      <button type="submit" disabled={loading} className={loading ? 'btn-loading' : ''}>
+        {loading ? <><span className="btn-spinner" /> Fetching record…</> : 'Fetch Land Details'}
       </button>
       <ResultBox error={error} result={result} />
     </form>
@@ -851,11 +915,11 @@ const DOCUMENT_TYPES = [
   {
     id: 'pattadar-passbook',
     icon: 'ti ti-id-badge-2',
-    navLabel: 'Pattadar Passbook',
+    navLabel: 'Land Details Search',
     tag: 'Revenue dept',
-    heading: 'Pattadar Passbook',
-    description: 'Land ownership and passbook details by village, survey and khata number.',
-    Form: PattadarForm,
+    heading: 'Land Details Search',
+    description: 'Agricultural land status and ownership from Bhu Bharati — by village + survey/khata number, or by passbook number and the last 4 digits of the owner’s Aadhaar.',
+    Form: LandDetailsForm,
   },
   {
     id: 'adangal',
@@ -926,7 +990,6 @@ export default function App() {
   }, [])
 
   // On phones the tab bar scrolls sideways; slide it so the active tab stays in view.
-  // Only the bar scrolls (not the page), so a smooth section scroll isn't interrupted.
   useEffect(() => {
     const nav = document.querySelector('.navbar')
     const tab = nav?.querySelector('.nav-tab.active')

@@ -11,6 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from backend.routers import adangal, ghmc, health, market_value, pattadar_passbook, prohibited_lands
 
 logger = logging.getLogger(__name__)
+# httpx logs every portal URL at INFO, and the passbook search puts the passbook number
+# and Aadhaar digits in its URL — keep those out of logs even when INFO is switched on.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def _prewarm_caches() -> None:
