@@ -2,23 +2,33 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
 // ---------- shared API hook ----------
+// Every failure becomes a sentence a user can act on: the server's own message when it
+// sent one, otherwise a plain explanation (never "Failed to fetch" or "[object Object]").
+async function errorMessage(res) {
+  const data = await res.json().catch(() => ({}))
+  if (typeof data.detail === 'string' && data.detail) return data.detail
+  if (res.status === 429) return 'Too many searches right now. Please wait a minute and try again.'
+  if (res.status >= 500) return "The government portal isn't responding right now. Please try again in a few minutes."
+  return 'Please check the details you entered and try again.'
+}
+
 function useApi() {
-  async function post(path, body) {
-    const res = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data.detail || 'Something went wrong.')
-    return data
+  async function request(path, options) {
+    let res
+    try {
+      res = await fetch(path, options)
+    } catch {
+      throw new Error("Can't reach TruDocs right now. Please check your internet connection and try again.")
+    }
+    if (!res.ok) throw new Error(await errorMessage(res))
+    return res.json().catch(() => ({}))
   }
-  async function get(path) {
-    const res = await fetch(path)
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data.detail || 'Something went wrong.')
-    return data
-  }
+  const post = (path, body) => request(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const get = (path) => request(path)
   return { post, get }
 }
 
@@ -27,21 +37,33 @@ function useFormState() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Only the latest search may set the result: a reply for an older one is dropped.
+  const generation = useRef(0)
 
   async function run(fn) {
+    const gen = ++generation.current
     setError('')
     setResult(null)
     setLoading(true)
     try {
-      setResult(await fn())
+      const data = await fn()
+      if (gen === generation.current) setResult(data)
     } catch (err) {
-      setError(err.message)
+      if (gen === generation.current) setError(err.message)
     } finally {
-      setLoading(false)
+      if (gen === generation.current) setLoading(false)
     }
   }
 
-  return { result, error, loading, run, setError }
+  // Clear the result when the inputs change, so it never shows under the wrong search.
+  function reset() {
+    generation.current++
+    setResult(null)
+    setError('')
+    setLoading(false)
+  }
+
+  return { result, error, loading, run, setError, reset }
 }
 
 // ---------- field label prettifier ----------
@@ -444,6 +466,79 @@ function AdangalForm() {
   )
 }
 
+const CERTIFICATE_LABELS = {
+  registration: 'Registration certificate',
+  extension: 'Extension certificate',
+  'special-extension': '4-month extension',
+}
+
+function ReraResults({ result }) {
+  const { total, shown, projects } = result
+  return (
+    <div className="result success">
+      <p className="result-status found">
+        <span className="result-icon">✓</span>
+        {shown < total
+          ? `Showing ${shown} of ${total} projects. Add more words to narrow it down.`
+          : `${total} project${total === 1 ? '' : 's'} found`}
+      </p>
+      <ul className="rera-list">
+        {projects.map((p, i) => (
+          <li className="rera-item" key={i}>
+            <div className="rera-name">{p.project}</div>
+            <div className="rera-meta">{p.promoter} · updated {p.last_modified}</div>
+            <div className="rera-links">
+              {p.certificates.map((c) => (
+                <a key={c.kind} className="rera-link primary" target="_blank" rel="noopener noreferrer"
+                  href={`/api/rera/certificate?${new URLSearchParams({ kind: c.kind, token: c.token })}`}>
+                  {CERTIFICATE_LABELS[c.kind]}&nbsp;↗
+                </a>
+              ))}
+              {p.details_url && (
+                <a className="rera-link" href={p.details_url} target="_blank" rel="noopener noreferrer">Project details&nbsp;↗</a>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ReraForm() {
+  const { post } = useApi()
+  const { result, error, loading, run, setError, reset } = useFormState()
+  const [fields, setFields] = useState({ project_name: '', promoter_name: '', registration_no: '' })
+  const set = (key) => (e) => { setFields({ ...fields, [key]: e.target.value }); reset() }
+
+  function submit(e) {
+    e.preventDefault()
+    if (!Object.values(fields).some((v) => v.trim())) {
+      setError('Enter a project name, promoter name or registration number.')
+      return
+    }
+    run(() => post('/api/rera/search', fields))
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Field label="Project name" hint="Fill any one box">
+        <input placeholder="e.g. Avasa Hills" value={fields.project_name} onChange={set('project_name')} maxLength={100} />
+      </Field>
+      <Field label="Promoter / builder name">
+        <input placeholder="e.g. YBR Infra" value={fields.promoter_name} onChange={set('promoter_name')} maxLength={50} />
+      </Field>
+      <Field label="RERA registration number">
+        <input placeholder="e.g. P02400001224" value={fields.registration_no} onChange={set('registration_no')} maxLength={15} autoCapitalize="characters" />
+      </Field>
+      <button type="submit" disabled={loading} className={loading ? 'btn-loading' : ''}>
+        {loading ? <><span className="btn-spinner" /> Searching RERA…</> : 'Find RERA Certificate'}
+      </button>
+      {result ? <ReraResults result={result} /> : <ResultBox error={error} />}
+    </form>
+  )
+}
+
 // ---------- page structure ----------
 const DOCUMENT_TYPES = [
   {
@@ -482,6 +577,15 @@ const DOCUMENT_TYPES = [
     description: 'Land ownership, cultivation, and usage record for agricultural land by village and survey number.',
     Form: AdangalForm,
   },
+  {
+    id: 'rera-certificate',
+    icon: 'ti ti-certificate',
+    navLabel: 'RERA Certificate',
+    tag: 'TG-RERA',
+    heading: 'RERA Certificate',
+    description: 'The official RERA registration certificate of a real estate project (and its extensions), by project, promoter or registration number.',
+    Form: ReraForm,
+  },
 ]
 
 function Skyline() {
@@ -500,8 +604,13 @@ export default function App() {
 
   useEffect(() => {
     const sections = DOCUMENT_TYPES.map((d) => document.getElementById(d.id)).filter(Boolean)
+    const lastId = DOCUMENT_TYPES[DOCUMENT_TYPES.length - 1].id
+    // The last section can't scroll up into the observer's band, so at the very
+    // bottom of the page it is the active one.
+    const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
     const observer = new IntersectionObserver(
       (entries) => {
+        if (atBottom()) { setActiveId(lastId); return }
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
@@ -510,8 +619,21 @@ export default function App() {
       { rootMargin: '-35% 0px -50% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
     )
     sections.forEach((s) => observer.observe(s))
-    return () => observer.disconnect()
+    const onScroll = () => { if (atBottom()) setActiveId(lastId) }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('scroll', onScroll)
+    }
   }, [])
+
+  // On phones the tab bar scrolls sideways; slide it so the active tab stays in view.
+  useEffect(() => {
+    const nav = document.querySelector('.navbar')
+    const tab = nav?.querySelector('.nav-tab.active')
+    if (!nav || !tab || nav.scrollWidth <= nav.clientWidth) return
+    nav.scrollTo({ left: tab.offsetLeft - (nav.clientWidth - tab.offsetWidth) / 2, behavior: 'smooth' })
+  }, [activeId])
 
   function scrollToSection(id) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -552,12 +674,12 @@ export default function App() {
 
         <h1>Telangana's own <em>property records</em> engine.</h1>
         <p className="tagline">
-          Search property tax, mutation, and land records — verified live from GHMC and CCLA, Telangana.
+          Search property tax, mutation, land records, and RERA certificates — verified live from GHMC, CCLA, and TG-RERA, Telangana.
         </p>
 
         <div className="stat-bar">
           <div className="stat">
-            <span className="num">4</span>
+            <span className="num">{DOCUMENT_TYPES.length}</span>
             <span className="label">Live Document Types</span>
           </div>
           <div className="stat">

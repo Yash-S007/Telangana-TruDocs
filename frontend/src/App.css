@@ -319,6 +319,7 @@ input, select {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 14px;
+  line-height: 1.25; /* "normal" differs between selects and inputs, so their heights drifted 2px apart */
   width: 100%;
   min-width: 0; /* a <select> can otherwise refuse to shrink below its
     widest OPTION's intrinsic content size, regardless of width:100% —
@@ -338,7 +339,17 @@ select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Safari (Mac and iPhone) ignores the padding above and draws a thin native box
+     (22-25px tall vs 43-46px inputs) unless the native look is off; the arrow is drawn here. */
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236b6f6c' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
 }
+/* Chrome's own value; Safari only dimmed disabled dropdowns through the native look. */
+select:disabled { opacity: 0.7; }
 
 input:focus, select:focus {
   outline: none;
@@ -596,4 +607,38 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   text-transform: none;
   letter-spacing: 0;
   margin-left: 8px;
+}
+
+/* ---------- RERA Certificate results ---------- */
+.rera-list { list-style: none; margin: 0; padding: 0; }
+.rera-item { padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: left; }
+.rera-item:last-child { border-bottom: none; }
+.rera-name { font-weight: 700; font-size: 15px; }
+.rera-meta { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+.rera-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rera-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+}
+.rera-link.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.rera-link:hover { filter: brightness(0.95); }
+
+/* ---------- mobile web (phones, ≤ 600px) ---------- */
+@media (max-width: 600px) {
+  /* iPhones zoom the whole page in on any input whose text is smaller than 16px. */
+  input, select { font-size: 16px; }
+  /* The three hero stats were 7px wider than a phone screen. */
+  .stat { padding: 0 14px; }
+  /* The result's label/value list stacks so long labels don't force sideways scroll. */
+  .field-list { grid-template-columns: 1fr; }
+  .field-list dt { white-space: normal; border-right: none; padding-bottom: 2px; }
+  .field-list dd { padding-top: 2px; }
 }
