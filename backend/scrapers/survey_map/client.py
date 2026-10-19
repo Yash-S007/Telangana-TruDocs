@@ -37,7 +37,7 @@ SOURCES = (
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 CHUNK = 500  # shapes per request; the server caps a reply at 1000 features
 
-_throttle = RateLimiter(min_interval_seconds=0.5)
+_throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minute to this portal
 
 # Measured live: the server runs about 2 searches at once and fails anything still queued
 # after 60s (10 new villages at once: all 10 failed at ~62s). So at most 2 of ours are on
