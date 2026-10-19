@@ -21,7 +21,7 @@ BASE_URL = "https://www.ghmc.gov.in"
 PAGE_PATH = "/Search.aspx"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
-_throttle = RateLimiter(min_interval_seconds=0.5)
+_throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minute to this portal
 
 
 def _extract_hidden_fields(html: str) -> dict:
