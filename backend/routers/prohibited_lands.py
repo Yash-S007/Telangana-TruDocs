@@ -6,9 +6,11 @@ from pydantic import BaseModel
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
 from backend.core.hierarchy import search_prohibited_lands_villages
+from backend.core.tool_threads import ToolThreads
 from backend.scrapers.prohibited_lands import client as pl_client
 
 router = APIRouter(prefix="/api/prohibited-lands", tags=["prohibited-lands"])
+_threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
 _STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, pl_client.NOT_PUBLISHED: 404}
 
@@ -40,6 +42,7 @@ def villages_search(q: str = ""):
 
 
 @router.get("/hyderabad/sros")
+@_threads.route
 def hyderabad_sros(division_id: str):
     try:
         return pl_client.fetch_hyderabad_sros(division_id)
@@ -59,6 +62,7 @@ class SurveyListRequest(Location):
 
 
 @router.post("/categories")
+@_threads.route
 def categories(req: Location):
     try:
         return pl_client.fetch_categories(**req.model_dump())
@@ -67,6 +71,7 @@ def categories(req: Location):
 
 
 @router.post("/survey-list")
+@_threads.route
 def survey_list(req: SurveyListRequest):
     try:
         return pl_client.fetch_survey_list(**req.model_dump())
@@ -75,6 +80,7 @@ def survey_list(req: SurveyListRequest):
 
 
 @router.get("/pdf")
+@_threads.route
 def category_pdf(district_id: str, mandal_id: str, village_id: str, kind: str, formtype: str, sro_code: str = ""):
     try:
         return _pdf(*pl_client.fetch_category_pdf(
@@ -86,6 +92,7 @@ def category_pdf(district_id: str, mandal_id: str, village_id: str, kind: str, f
 
 
 @router.get("/order")
+@_threads.route
 def order_pdf(order_id: str, flag: str):
     try:
         return _pdf(*pl_client.fetch_order_pdf(order_id, flag))
