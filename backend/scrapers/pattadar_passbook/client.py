@@ -37,7 +37,7 @@ BASE_URL = "https://bhubharati.telangana.gov.in"
 LANDING_PATH = "/knowLandStatus"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
-_throttle = RateLimiter(min_interval_seconds=0.5)
+_throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minute to this portal
 
 # Single-flight: identical searches arriving together wait for one portal flow instead
 # of each solving its own captcha and hammering the portal. Nothing is retained after
