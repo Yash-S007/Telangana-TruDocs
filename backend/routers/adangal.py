@@ -3,9 +3,11 @@ from pydantic import BaseModel
 
 from backend.core.errors import PortalError
 from backend.core.hierarchy import search_adangal_villages
+from backend.core.tool_threads import ToolThreads
 from backend.scrapers.adangal import client as adangal_client
 
 router = APIRouter(prefix="/api/adangal", tags=["adangal"])
+_threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
 
 @router.get("/villages/search")
@@ -14,6 +16,7 @@ def villages_search(q: str = ""):
 
 
 @router.get("/survey-options/{village_id}")
+@_threads.route
 def survey_options(village_id: str, option: str = "surveyNo"):
     return adangal_client.fetch_survey_options(village_id, option)
 
@@ -28,6 +31,7 @@ class AdangalRequest(BaseModel):
 
 
 @router.post("/search")
+@_threads.route
 def search(req: AdangalRequest):
     try:
         return adangal_client.fetch_adangal(
