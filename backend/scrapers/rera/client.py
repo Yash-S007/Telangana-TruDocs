@@ -47,7 +47,7 @@ _BUTTON_KIND = {"showFile": "registration", "showExtensionFile": "extension", "s
 _SSL = ssl.create_default_context(cafile=certifi.where())
 _SSL.load_verify_locations(cafile=str(Path(__file__).with_name("emsign_ssl_ca_g1.pem")))
 
-_throttle = RateLimiter(min_interval_seconds=0.5)
+_throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minute to this portal
 
 _CACHE_SECONDS = 6 * 3600
 # Identical requests that arrive together wait for one portal fetch instead of each making

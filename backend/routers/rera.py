@@ -5,9 +5,11 @@ from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
 from backend.core.errors import BAD_INPUT, CAPTCHA_FAILED, NOT_FOUND, PortalError
+from backend.core.tool_threads import ToolThreads
 from backend.scrapers.rera import client as rera_client
 
 router = APIRouter(prefix="/api/rera", tags=["rera"])
+_threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
 _STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, CAPTCHA_FAILED: 503}
 
@@ -24,6 +26,7 @@ class SearchRequest(BaseModel):
 
 # POST so promoter names (often a person's name) stay out of the access log (SKILL.md rule 3).
 @router.post("/search")
+@_threads.route
 def search(req: SearchRequest):
     try:
         return rera_client.search_projects(req.project_name, req.promoter_name, req.registration_no)
@@ -32,6 +35,7 @@ def search(req: SearchRequest):
 
 
 @router.get("/certificate")
+@_threads.route
 def certificate(kind: str, token: str):
     try:
         pdf, filename = rera_client.fetch_certificate(kind, token)
