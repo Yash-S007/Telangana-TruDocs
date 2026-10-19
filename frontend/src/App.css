@@ -670,6 +670,28 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 .maps-link:hover { background: var(--primary-hover); }
 .survey-note { margin: 10px 16px 14px; font-size: 12px; color: var(--text-muted); }
 
+/* ---------- RERA Certificate results ---------- */
+.rera-list { list-style: none; margin: 0; padding: 0; }
+.rera-item { padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: left; }
+.rera-item:last-child { border-bottom: none; }
+.rera-name { font-weight: 700; font-size: 15px; }
+.rera-meta { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+.rera-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rera-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+}
+.rera-link.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.rera-link:hover { filter: brightness(0.95); }
+
 /* ---------- mobile web (phones, ≤ 600px) ---------- */
 @media (max-width: 600px) {
   /* iPhones zoom the whole page in on any input whose text is smaller than 16px. */

@@ -1073,6 +1073,79 @@ function SurveyMapForm() {
   )
 }
 
+const CERTIFICATE_LABELS = {
+  registration: 'Registration certificate',
+  extension: 'Extension certificate',
+  'special-extension': '4-month extension',
+}
+
+function ReraResults({ result }) {
+  const { total, shown, projects } = result
+  return (
+    <div className="result success">
+      <p className="result-status found">
+        <span className="result-icon">✓</span>
+        {shown < total
+          ? `Showing ${shown} of ${total} projects. Add more words to narrow it down.`
+          : `${total} project${total === 1 ? '' : 's'} found`}
+      </p>
+      <ul className="rera-list">
+        {projects.map((p, i) => (
+          <li className="rera-item" key={i}>
+            <div className="rera-name">{p.project}</div>
+            <div className="rera-meta">{p.promoter} · updated {p.last_modified}</div>
+            <div className="rera-links">
+              {p.certificates.map((c) => (
+                <a key={c.kind} className="rera-link primary" target="_blank" rel="noopener noreferrer"
+                  href={`/api/rera/certificate?${new URLSearchParams({ kind: c.kind, token: c.token })}`}>
+                  {CERTIFICATE_LABELS[c.kind]}&nbsp;↗
+                </a>
+              ))}
+              {p.details_url && (
+                <a className="rera-link" href={p.details_url} target="_blank" rel="noopener noreferrer">Project details&nbsp;↗</a>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ReraForm() {
+  const { post } = useApi()
+  const { result, error, loading, run, setError, reset } = useFormState()
+  const [fields, setFields] = useState({ project_name: '', promoter_name: '', registration_no: '' })
+  const set = (key) => (e) => { setFields({ ...fields, [key]: e.target.value }); reset() }
+
+  function submit(e) {
+    e.preventDefault()
+    if (!Object.values(fields).some((v) => v.trim())) {
+      setError('Enter a project name, promoter name or registration number.')
+      return
+    }
+    run(() => post('/api/rera/search', fields))
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Field label="Project name" hint="Fill any one box">
+        <input placeholder="e.g. Avasa Hills" value={fields.project_name} onChange={set('project_name')} maxLength={100} />
+      </Field>
+      <Field label="Promoter / builder name">
+        <input placeholder="e.g. YBR Infra" value={fields.promoter_name} onChange={set('promoter_name')} maxLength={50} />
+      </Field>
+      <Field label="RERA registration number">
+        <input placeholder="e.g. P02400001224" value={fields.registration_no} onChange={set('registration_no')} maxLength={15} autoCapitalize="characters" />
+      </Field>
+      <button type="submit" disabled={loading} className={loading ? 'btn-loading' : ''}>
+        {loading ? <><span className="btn-spinner" /> Searching RERA…</> : 'Find RERA Certificate'}
+      </button>
+      {result ? <ReraResults result={result} /> : <ResultBox error={error} />}
+    </form>
+  )
+}
+
 // ---------- page structure ----------
 const DOCUMENT_TYPES = [
   {
@@ -1137,6 +1210,15 @@ const DOCUMENT_TYPES = [
     heading: 'Survey Map',
     description: 'A survey number’s boundary on a satellite map, with its corner GPS points and area, by village and survey number.',
     Form: SurveyMapForm,
+  },
+  {
+    id: 'rera-certificate',
+    icon: 'ti ti-certificate',
+    navLabel: 'RERA Certificate',
+    tag: 'TG-RERA',
+    heading: 'RERA Certificate',
+    description: 'The official RERA registration certificate of a real estate project (and its extensions), by project, promoter or registration number.',
+    Form: ReraForm,
   },
 ]
 
@@ -1226,7 +1308,7 @@ export default function App() {
 
         <h1>Telangana's own <em>property records</em> engine.</h1>
         <p className="tagline">
-          Search property tax, mutation, land records, market values, prohibited lands, and survey maps — verified live from GHMC, CCLA, IGRS, and TGRAC, Telangana.
+          Search property tax, mutation, land records, market values, prohibited lands, survey maps, and RERA certificates — verified live from GHMC, CCLA, IGRS, TGRAC, and TG-RERA, Telangana.
         </p>
 
         <div className="stat-bar">
