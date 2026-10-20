@@ -9,10 +9,12 @@ import io
 import math
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from functools import lru_cache
 
 import httpx
+from PIL import Image
 from reportlab.lib.pagesizes import A3, landscape
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
@@ -24,12 +26,14 @@ from backend.scrapers.survey_map import client as survey_map
 
 # shortcut: Esri's keyless World Imagery (what TGRAC's own viewer uses) is fine for testing;
 # before going live, confirm Esri's commercial terms or swap in a licensed provider here.
-SATELLITE_EXPORT = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export"
-# Esri refuses (HTTP 500) pictures sharper than it holds: 0.3 m a pixel near Hyderabad, 0.6 m
-# or coarser in much of rural Telangana. 3000 pixels across is ~190 dpi on A3 and keeps the
-# PDF near 2 MB (Esri's own cap is 4096).
-SHARPEST_M_PER_PX = 0.6
-MAX_PX = 3000
+# Its ready-made 256-pixel tiles come back in ~0.1 s each; its "export" of one big picture took
+# 4-23 s for a village and never answered at 4096 pixels, so the photo is stitched from tiles.
+SATELLITE_TILES = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile"
+WORLD = 20037508.34  # half the Web Mercator world, in metres
+PHOTO_PX = 2500  # across the map at least: ~160 dpi on A3...
+MAX_PHOTO_PX = 3000  # ...and at most (the next sharper tile level can double it), so the PDF stays ~2 MB
+MAX_LEVEL = 18  # ~0.6 m a pixel, the sharpest Esri holds for much of rural Telangana
+MAX_TILES = 300
 _CACHE_SECONDS = 6 * 3600
 
 MARGIN = 12 * mm
@@ -79,9 +83,7 @@ def _pdf(dmv: str, _bucket: int) -> bytes:
         page_w, page_h = page_h, page_w
     frame = (MARGIN, MARGIN + FOOTER, page_w - 2 * MARGIN, page_h - 2 * MARGIN - HEADER - FOOTER)
     box = _fit(min(xs), min(ys), max(xs), max(ys), frame[2] / frame[3])
-    width_px = round(min(MAX_PX, (box[2] - box[0]) / SHARPEST_M_PER_PX))
-    photo = _satellite(box, width_px, round(width_px * frame[3] / frame[2]))
-    return _draw(data, (page_w, page_h), frame, box, photo)
+    return _draw(data, (page_w, page_h), frame, box, _satellite(box))
 
 
 def _merc(lon: float, lat: float) -> tuple:
@@ -101,21 +103,42 @@ def _fit(x0, y0, x1, y1, aspect):
     return cx - half_w, cy - half_h, cx + half_w, cy + half_h
 
 
-def _satellite(box, width_px: int, height_px: int):
-    """Esri's photo of the box as JPEG bytes, or None. Each refusal (sharper than Esri holds
-    there) retries with half the pixels, as the Survey Map page does."""
-    for _ in range(4):
-        try:
-            resp = httpx.get(SATELLITE_EXPORT, timeout=60, headers={"User-Agent": survey_map.USER_AGENT}, params={
-                "bbox": ",".join(f"{v:.2f}" for v in box), "bboxSR": "3857", "imageSR": "3857",
-                "size": f"{width_px},{height_px}", "format": "jpg", "f": "image",
-            })
-        except httpx.HTTPError:
-            return None
-        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/"):
-            return resp.content
-        width_px, height_px = width_px // 2, height_px // 2
-    return None
+def _satellite(box):
+    """Esri's photo of the box as JPEG bytes, stitched from its tiles, or None if Esri can't be
+    reached. A tile that doesn't come leaves a grey square; the outlines are drawn on top anyway."""
+    level = min(MAX_LEVEL, math.ceil(math.log2(2 * WORLD * PHOTO_PX / (256 * (box[2] - box[0])))))
+    while True:
+        size = 2 * WORLD / 2 ** level  # one tile's width, in metres
+        tx0, tx1 = int((box[0] + WORLD) // size), int((box[2] + WORLD) // size)
+        ty0, ty1 = int((WORLD - box[3]) // size), int((WORLD - box[1]) // size)
+        if (tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= MAX_TILES or level <= 1:
+            break
+        level -= 1  # a very big village: a coarser photo rather than hundreds of tiles
+    tiles = [(tx, ty) for ty in range(ty0, ty1 + 1) for tx in range(tx0, tx1 + 1)]
+    with httpx.Client(headers={"User-Agent": survey_map.USER_AGENT}, timeout=20) as client, ThreadPoolExecutor(8) as pool:
+        got = list(pool.map(lambda t: _tile(client, level, *t), tiles))
+    if not any(got):
+        return None
+    mosaic = Image.new("RGB", ((tx1 - tx0 + 1) * 256, (ty1 - ty0 + 1) * 256), (60, 64, 60))
+    for (tx, ty), jpeg in zip(tiles, got):
+        if jpeg:
+            mosaic.paste(Image.open(io.BytesIO(jpeg)).convert("RGB"), ((tx - tx0) * 256, (ty - ty0) * 256))
+    px = 256 / size  # pixels per metre
+    left, top = (box[0] - (tx0 * size - WORLD)) * px, ((WORLD - ty0 * size) - box[3]) * px
+    photo = mosaic.crop((round(left), round(top), round(left + (box[2] - box[0]) * px), round(top + (box[3] - box[1]) * px)))
+    if photo.width > MAX_PHOTO_PX:
+        photo = photo.resize((MAX_PHOTO_PX, round(photo.height * MAX_PHOTO_PX / photo.width)), Image.LANCZOS)
+    out = io.BytesIO()
+    photo.save(out, "JPEG", quality=82)
+    return out.getvalue()
+
+
+def _tile(client: httpx.Client, level: int, tx: int, ty: int):
+    try:
+        resp = client.get(f"{SATELLITE_TILES}/{level}/{ty}/{tx}")
+    except httpx.HTTPError:
+        return None
+    return resp.content if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/") else None
 
 
 def _draw(data: dict, page: tuple, frame: tuple, box: tuple, photo) -> bytes:

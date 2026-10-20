@@ -55,7 +55,7 @@ def photo(monkeypatch):
     jpeg = io.BytesIO()
     Image.new("RGB", (40, 30), (60, 90, 50)).save(jpeg, "JPEG")
     asked = []
-    monkeypatch.setattr(client, "_satellite", lambda box, w, h: asked.append((w, h)) or jpeg.getvalue())
+    monkeypatch.setattr(client, "_satellite", lambda box: asked.append(box) or jpeg.getvalue())
     return asked
 
 
@@ -90,12 +90,12 @@ def test_pdf_opens_in_the_tab_with_a_clear_name(portal, photo):
     assert resp.status_code == 200 and resp.headers["content-type"] == "application/pdf"
     assert resp.headers["content-disposition"] == 'inline; filename="Village-map-Kokapet-1516004.pdf"'
     assert resp.content.startswith(b"%PDF-") and b"(Village map: Kokapet)" in resp.content
-    (w, h), = photo
-    assert w <= client.MAX_PX and w / h > 1.3  # a landscape A3 frame for a wide village
+    (box,) = photo
+    assert (box[2] - box[0]) / (box[3] - box[1]) > 1.3  # a landscape A3 frame for a wide village
 
 
 def test_pdf_is_still_made_when_the_photo_is_unavailable(portal, monkeypatch):
-    monkeypatch.setattr(client, "_satellite", lambda box, w, h: None)
+    monkeypatch.setattr(client, "_satellite", lambda box: None)
     pdf, name = client.fetch_village_map_pdf(DMV)
     assert pdf.startswith(b"%PDF-") and name == "Village-map-Kokapet-1516004.pdf"
 
@@ -125,22 +125,44 @@ def test_identical_pdf_requests_share_one_build_and_repeats_are_cached(portal, p
     assert len(builds) == 1 and len(set(results)) == 1
 
 
-class Reply:
-    def __init__(self, status, ctype="image/jpeg"):
-        self.status_code, self.headers, self.content = status, {"content-type": ctype}, b"jpeg"
+def _tiles(monkeypatch, fail=lambda tx, ty: False):
+    """Esri tiles as solid squares; returns the (level, tx, ty) asked for."""
+    asked, jpeg = [], io.BytesIO()
+    Image.new("RGB", (256, 256), (200, 30, 30)).save(jpeg, "JPEG")
+    monkeypatch.setattr(client, "_tile", lambda c, level, tx, ty: asked.append((level, tx, ty)) or (None if fail(tx, ty) else jpeg.getvalue()))
+    return asked
 
 
-def test_photo_retries_with_half_the_pixels_when_esri_refuses(monkeypatch):
-    sizes = []
-    replies = iter([Reply(500, "text/html"), Reply(200, "application/json"), Reply(200)])
-    monkeypatch.setattr(client.httpx, "get", lambda url, **kw: sizes.append(kw["params"]["size"]) or next(replies))
-    assert client._satellite((0, 0, 1, 1), 3000, 2000) == b"jpeg"
-    assert sizes == ["3000,2000", "1500,1000", "750,500"]
+BOX = (8716200.0, 1966000.0, 8721000.0, 1969000.0)  # 4.8 km x 3 km of Web Mercator around Kokapet
+
+
+def test_photo_is_stitched_from_tiles_and_cropped_to_the_map(monkeypatch):
+    asked = _tiles(monkeypatch)
+    photo = Image.open(io.BytesIO(client._satellite(BOX)))
+    level = asked[0][0]
+    size = 2 * client.WORLD / 2 ** level
+    assert level == 17 and len({(tx, ty) for _, tx, ty in asked}) == len(asked)  # each tile once
+    stitched_w = (BOX[2] - BOX[0]) / size * 256  # 4019 px at level 17: more than the PDF needs
+    assert photo.width == client.MAX_PHOTO_PX and stitched_w > client.MAX_PHOTO_PX
+    assert abs(photo.width / photo.height - (BOX[2] - BOX[0]) / (BOX[3] - BOX[1])) < 0.01  # same shape as the map
+
+
+def test_missing_tiles_leave_grey_and_no_tiles_means_no_photo(monkeypatch):
+    _tiles(monkeypatch, fail=lambda tx, ty: tx % 2 == 0)
+    assert Image.open(io.BytesIO(client._satellite(BOX))).width > 1000
+    _tiles(monkeypatch, fail=lambda tx, ty: True)
+    assert client._satellite(BOX) is None
+
+
+def test_a_huge_village_gets_a_coarser_photo_not_hundreds_of_tiles(monkeypatch):
+    asked = _tiles(monkeypatch)
+    client._satellite((8700000.0, 1950000.0, 8760000.0, 1990000.0))  # 60 km wide
+    assert len(asked) <= client.MAX_TILES
 
 
 def test_photo_gives_up_quietly_when_esri_is_unreachable(monkeypatch):
-    def down(url, **kw):
+    def down(self, url, **kw):
         raise httpx.ConnectError("down")
 
-    monkeypatch.setattr(client.httpx, "get", down)
-    assert client._satellite((0, 0, 1, 1), 3000, 2000) is None
+    monkeypatch.setattr(client.httpx.Client, "get", down)
+    assert client._satellite(BOX) is None

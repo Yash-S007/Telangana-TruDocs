@@ -1074,16 +1074,47 @@ function SurveyMapForm() {
 }
 
 const VILLAGE_ZOOMS = [1, 2, 4, 8]
+// Esri's ready-made 256-pixel photo tiles load in ~0.1 s each; one big exported picture of a
+// whole village took 4-23 s and never came at 4096 pixels. (Same Esri licence note as above.)
+const SATELLITE_TILES = 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile'
+const WORLD = 20037508.34 // half the Web Mercator world, in metres
+
+// The photo level whose pixels match `screenPx` device pixels across the frame: 18 is ~0.6 m a
+// pixel, the sharpest Esri holds for much of rural Telangana.
+function tileLevel(box, screenPx) {
+  return Math.max(1, Math.min(18, Math.ceil(Math.log2((2 * WORLD * screenPx) / ((box[2] - box[0]) * 256)))))
+}
+
+// The tiles covering `part` of the frame ([left, top, right, bottom] as fractions), in drawing units.
+function tilesFor(box, part, level) {
+  const size = (2 * WORLD) / 2 ** level
+  const [w, h] = [box[2] - box[0], box[3] - box[1]]
+  const [x0, x1] = [box[0] + part[0] * w, box[0] + part[2] * w]
+  const [top, bottom] = [box[3] - part[1] * h, box[3] - part[3] * h]
+  const tiles = []
+  for (let tx = Math.floor((x0 + WORLD) / size); tx <= Math.floor((x1 + WORLD) / size); tx++) {
+    for (let ty = Math.floor((WORLD - top) / size); ty <= Math.floor((WORLD - bottom) / size); ty++) {
+      tiles.push({
+        key: `${level}/${ty}/${tx}`,
+        x: ((tx * size - WORLD - box[0]) / w) * MAP_W,
+        y: ((box[3] - (WORLD - ty * size)) / h) * MAP_H,
+        w: (size / w) * MAP_W * 1.004, // a hair wider, so no seam shows between tiles
+        h: (size / h) * MAP_H * 1.004,
+      })
+    }
+  }
+  return tiles
+}
 
 // A whole village on the satellite photo: every parcel's outline, and each survey number as big
 // as its parcel allows. Small numbers appear as you zoom in; they're drawn, so they stay sharp.
 function VillageMap({ result }) {
-  // How many times Esri refused the photo; each refusal halves its pixel count.
-  const [coarser, setCoarser] = useState(0)
   const [zoom, setZoom] = useState(1)
   const [shownWidth, setShownWidth] = useState(MAP_W)
+  const [view, setView] = useState([0, 0, 1, 1]) // the visible part of the map, as fractions
   const scroller = useRef(null)
   const centre = useRef([0.5, 0.5])
+  const settle = useRef(null)
 
   const drawn = useMemo(() => {
     let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity]
@@ -1122,43 +1153,51 @@ function VillageMap({ result }) {
     return { box, parcels }
   }, [result])
 
+  function look() {
+    const el = scroller.current
+    setView([el.scrollLeft / el.scrollWidth, el.scrollTop / el.scrollHeight,
+      (el.scrollLeft + el.clientWidth) / el.scrollWidth, (el.scrollTop + el.clientHeight) / el.scrollHeight])
+  }
   useEffect(() => {
     const el = scroller.current
-    const watch = new ResizeObserver(() => setShownWidth(el.clientWidth))
+    const watch = new ResizeObserver(() => { setShownWidth(el.clientWidth); look() })
     watch.observe(el)
-    return () => watch.disconnect()
+    return () => { watch.disconnect(); clearTimeout(settle.current) }
   }, [])
-  // Keep the same spot in the middle while zooming.
+  // Keep the same spot in the middle while zooming, then fetch sharp photo for what's on screen.
   useLayoutEffect(() => {
     const el = scroller.current
     el.scrollLeft = centre.current[0] * el.scrollWidth - el.clientWidth / 2
     el.scrollTop = centre.current[1] * el.scrollHeight - el.clientHeight / 2
+    look()
   }, [zoom])
   function zoomTo(next) {
     const el = scroller.current
     centre.current = [(el.scrollLeft + el.clientWidth / 2) / el.scrollWidth, (el.scrollTop + el.clientHeight / 2) / el.scrollHeight]
     setZoom(next)
   }
+  function scrolled() { // once the scrolling stops
+    clearTimeout(settle.current)
+    settle.current = setTimeout(look, 150)
+  }
 
   const { box } = drawn
-  // Sharper photo when zoomed in, but never sharper than Esri holds (0.6 m a pixel in much of
-  // rural Telangana) nor past its 4096-pixel cap; each refusal retries with half the pixels.
-  const imageW = Math.round(Math.min(4096, (box[2] - box[0]) / 0.6, MAP_W * 2 * zoom) / 2 ** coarser)
-  const image = `${SATELLITE_EXPORT}?${new URLSearchParams({
-    bbox: box.map((v) => v.toFixed(2)).join(','),
-    bboxSR: '3857',
-    imageSR: '3857',
-    size: `${imageW},${Math.round((imageW * MAP_H) / MAP_W)}`,
-    format: 'jpg',
-    f: 'image',
-  })}`
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  // A whole-village photo that stays underneath, plus sharper tiles for just the part on screen.
+  const baseLevel = tileLevel(box, shownWidth * dpr)
+  const sharpLevel = tileLevel(box, shownWidth * zoom * dpr)
+  const margin = 0.1 / zoom
+  const sharp = sharpLevel > baseLevel
+    ? tilesFor(box, [view[0] - margin, view[1] - margin, view[2] + margin, view[3] + margin].map((v) => Math.min(1, Math.max(0, v))), sharpLevel)
+    : []
   const pxPerUnit = (shownWidth * zoom) / MAP_W
   return (
     <figure className="village-map">
-      <div className="village-map-scroll" ref={scroller}>
+      <div className="village-map-scroll" ref={scroller} onScroll={scrolled}>
         <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={{ width: `${zoom * 100}%` }} role="img" aria-label={`Satellite map of ${result.village} village with its survey numbers`}>
-          <image href={image} width={MAP_W} height={MAP_H} preserveAspectRatio="none"
-            onError={() => setCoarser((c) => Math.min(c + 1, 3))} />
+          {[...tilesFor(box, [0, 0, 1, 1], baseLevel), ...sharp].map((t) => (
+            <image key={t.key} href={`${SATELLITE_TILES}/${t.key}`} x={t.x} y={t.y} width={t.w} height={t.h} preserveAspectRatio="none" />
+          ))}
           {drawn.parcels.map((p, i) => <path key={i} d={p.d} className={p.no ? 'lot' : 'lot road'} />)}
           {drawn.parcels.map((p, i) => {
             // Shown once it would be at least 7px on screen; never bigger than 18px when zoomed in.
