@@ -8,6 +8,7 @@ village name, a north arrow and a "for reference only" note. It is not a certifi
 import io
 import math
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -30,11 +31,14 @@ from backend.scrapers.survey_map import client as survey_map
 # 4-23 s for a village and never answered at 4096 pixels, so the photo is stitched from tiles.
 SATELLITE_TILES = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile"
 WORLD = 20037508.34  # half the Web Mercator world, in metres
-PHOTO_PX = 2500  # across the map at least: ~160 dpi on A3...
-MAX_PHOTO_PX = 3000  # ...and at most (the next sharper tile level can double it), so the PDF stays ~2 MB
+PHOTO_PX = 2500  # across the map: ~160 dpi on A3 (the nearest tile level gives 1770-3540)...
+MAX_PHOTO_PX = 3000  # ...and at most this, so the PDF stays ~2 MB
 MAX_LEVEL = 18  # ~0.6 m a pixel, the sharpest Esri holds for much of rural Telangana
 MAX_TILES = 300
 _CACHE_SECONDS = 6 * 3600
+# A build holds the stitched photo in memory (35-60 MB), so only two run at once; the rest wait
+# their turn (on the tool's own threads) instead of piling up gigabytes.
+_builds = threading.BoundedSemaphore(2)
 
 MARGIN = 12 * mm
 HEADER = 20 * mm
@@ -56,7 +60,6 @@ def fetch_village_map(dmv: str) -> dict:
         "map_version": version,
         "parcels": [{
             "survey_no": p["survey_no"] if survey_map._is_survey(p) else "",
-            "kind": p["remarks"] or p["kind"],
             "rings": [[[round(x, 6), round(y, 6)] for x, y in ring] for ring in p["rings"]],  # ~0.1 m
         } for p in parcels],
     }
@@ -83,7 +86,8 @@ def _pdf(dmv: str, _bucket: int) -> bytes:
         page_w, page_h = page_h, page_w
     frame = (MARGIN, MARGIN + FOOTER, page_w - 2 * MARGIN, page_h - 2 * MARGIN - HEADER - FOOTER)
     box = _fit(min(xs), min(ys), max(xs), max(ys), frame[2] / frame[3])
-    return _draw(data, (page_w, page_h), frame, box, _satellite(box))
+    with _builds:
+        return _draw(data, (page_w, page_h), frame, box, _satellite(box))
 
 
 def _merc(lon: float, lat: float) -> tuple:
@@ -106,7 +110,7 @@ def _fit(x0, y0, x1, y1, aspect):
 def _satellite(box):
     """Esri's photo of the box as JPEG bytes, stitched from its tiles, or None if Esri can't be
     reached. A tile that doesn't come leaves a grey square; the outlines are drawn on top anyway."""
-    level = min(MAX_LEVEL, math.ceil(math.log2(2 * WORLD * PHOTO_PX / (256 * (box[2] - box[0])))))
+    level = min(MAX_LEVEL, round(math.log2(2 * WORLD * PHOTO_PX / (256 * (box[2] - box[0])))))
     while True:
         size = 2 * WORLD / 2 ** level  # one tile's width, in metres
         tx0, tx1 = int((box[0] + WORLD) // size), int((box[2] + WORLD) // size)
@@ -119,13 +123,18 @@ def _satellite(box):
         got = list(pool.map(lambda t: _tile(client, level, *t), tiles))
     if not any(got):
         return None
-    mosaic = Image.new("RGB", ((tx1 - tx0 + 1) * 256, (ty1 - ty0 + 1) * 256), (60, 64, 60))
-    for (tx, ty), jpeg in zip(tiles, got):
-        if jpeg:
-            mosaic.paste(Image.open(io.BytesIO(jpeg)).convert("RGB"), ((tx - tx0) * 256, (ty - ty0) * 256))
+    # Tiles go straight onto a picture of just the map's frame (edge tiles are clipped), so a
+    # bigger mosaic is never held in memory next to its cropped copy.
     px = 256 / size  # pixels per metre
     left, top = (box[0] - (tx0 * size - WORLD)) * px, ((WORLD - ty0 * size) - box[3]) * px
-    photo = mosaic.crop((round(left), round(top), round(left + (box[2] - box[0]) * px), round(top + (box[3] - box[1]) * px)))
+    photo = Image.new("RGB", (round((box[2] - box[0]) * px), round((box[3] - box[1]) * px)), (60, 64, 60))
+    for i, ((tx, ty), jpeg) in enumerate(zip(tiles, got)):
+        try:
+            with Image.open(io.BytesIO(jpeg)) as tile:
+                photo.paste(tile.convert("RGB"), (round((tx - tx0) * 256 - left), round((ty - ty0) * 256 - top)))
+        except (OSError, TypeError):  # missing (None) or broken tile: leave it grey
+            pass
+        got[i] = None
     if photo.width > MAX_PHOTO_PX:
         photo = photo.resize((MAX_PHOTO_PX, round(photo.height * MAX_PHOTO_PX / photo.width)), Image.LANCZOS)
     out = io.BytesIO()

@@ -69,7 +69,6 @@ def test_map_has_every_parcel_and_numbers_only_on_surveys(portal):
     data = _app().get(f"/api/village-map/map/{DMV}").json()
     assert (data["village"], data["mandal"], data["district"], data["map_version"]) == ("Kokapet", "Gandipet", "Rangareddy", "30cm")
     assert [p["survey_no"] for p in data["parcels"]] == ["163", "164", ""]  # roads and streams have no number
-    assert [p["kind"] for p in data["parcels"]] == ["Patta", "Surveyed", "UnSurveyed-Road"]
     assert data["parcels"][0]["rings"][0][0] == [78.320123, 17.400123]  # ~0.1 m is plenty to draw
 
 
@@ -136,15 +135,20 @@ def _tiles(monkeypatch, fail=lambda tx, ty: False):
 BOX = (8716200.0, 1966000.0, 8721000.0, 1969000.0)  # 4.8 km x 3 km of Web Mercator around Kokapet
 
 
-def test_photo_is_stitched_from_tiles_and_cropped_to_the_map(monkeypatch):
+def test_photo_is_stitched_at_the_nearest_level_and_cropped_to_the_map(monkeypatch):
     asked = _tiles(monkeypatch)
     photo = Image.open(io.BytesIO(client._satellite(BOX)))
     level = asked[0][0]
     size = 2 * client.WORLD / 2 ** level
-    assert level == 17 and len({(tx, ty) for _, tx, ty in asked}) == len(asked)  # each tile once
-    stitched_w = (BOX[2] - BOX[0]) / size * 256  # 4019 px at level 17: more than the PDF needs
-    assert photo.width == client.MAX_PHOTO_PX and stitched_w > client.MAX_PHOTO_PX
-    assert abs(photo.width / photo.height - (BOX[2] - BOX[0]) / (BOX[3] - BOX[1])) < 0.01  # same shape as the map
+    assert level == 16 and len({(tx, ty) for _, tx, ty in asked}) == len(asked)  # each tile once
+    assert abs(photo.width - (BOX[2] - BOX[0]) / size * 256) <= 1 and abs(photo.height - (BOX[3] - BOX[1]) / size * 256) <= 1
+    assert client.PHOTO_PX / 2 ** 0.5 <= photo.width <= client.MAX_PHOTO_PX
+
+
+def test_a_photo_wider_than_needed_is_scaled_down(monkeypatch):
+    _tiles(monkeypatch)
+    photo = Image.open(io.BytesIO(client._satellite((8716200.0, 1966000.0, 8719900.0, 1968000.0))))  # 3.7 km: ~3100 px
+    assert photo.width == client.MAX_PHOTO_PX
 
 
 def test_missing_tiles_leave_grey_and_no_tiles_means_no_photo(monkeypatch):
@@ -152,6 +156,38 @@ def test_missing_tiles_leave_grey_and_no_tiles_means_no_photo(monkeypatch):
     assert Image.open(io.BytesIO(client._satellite(BOX))).width > 1000
     _tiles(monkeypatch, fail=lambda tx, ty: True)
     assert client._satellite(BOX) is None
+
+
+def test_a_broken_tile_is_left_grey(monkeypatch):
+    asked, good = [], io.BytesIO()
+    Image.new("RGB", (256, 256), (200, 30, 30)).save(good, "JPEG")
+    monkeypatch.setattr(client, "_tile", lambda c, level, tx, ty: asked.append(tx) or (b"\xff\xd8 not a jpeg" if tx % 2 else good.getvalue()))
+    assert Image.open(io.BytesIO(client._satellite(BOX))).width > 1000
+
+
+def test_at_most_two_pdfs_are_built_at_once(portal, monkeypatch):
+    villages = ("1516004", "1903030", "2036023", "1901022")  # real codes from our list
+    monkeypatch.setattr(survey_map, "fetch_village_parcels", lambda dmv: ("30cm", PARCELS))
+    monkeypatch.setattr(client, "_satellite", lambda box: None)
+    running, peak, lock = [0], [0], threading.Lock()
+    real = client._draw
+
+    def counted(*args):
+        with lock:
+            running[0] += 1
+            peak[0] = max(peak[0], running[0])
+        time.sleep(0.2)
+        try:
+            return real(*args)
+        finally:
+            with lock:
+                running[0] -= 1
+
+    monkeypatch.setattr(client, "_draw", counted)
+    threads = [threading.Thread(target=client.fetch_village_map_pdf, args=(v,)) for v in villages]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert peak[0] == 2
 
 
 def test_a_huge_village_gets_a_coarser_photo_not_hundreds_of_tiles(monkeypatch):
