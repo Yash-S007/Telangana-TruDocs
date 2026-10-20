@@ -1,12 +1,19 @@
-"""Village Map: the whole-village data for drawing. Synthetic shapes only; the village code is
-a real one from our list (codes are public, not personal)."""
+"""Village Map: the whole-village data for drawing, and its PDF. Synthetic shapes only; the
+village code is a real one from our list (codes are public, not personal)."""
+import io
+import threading
+import time
+
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
 from backend.routers import village_map as village_map_router
 from backend.scrapers.survey_map import client as survey_map
+from backend.scrapers.village_map import client
 
 DMV = "1516004"  # Kokapet, Gandipet, Rangareddy
 
@@ -22,6 +29,13 @@ PARCELS = (
 )
 
 
+@pytest.fixture(autouse=True)
+def fresh():
+    client._pdf.cache_clear()
+    yield
+    client._pdf.cache_clear()
+
+
 @pytest.fixture
 def portal(monkeypatch):
     calls = []
@@ -34,6 +48,15 @@ def portal(monkeypatch):
 
     monkeypatch.setattr(survey_map, "fetch_village_parcels", fetch)
     return calls
+
+
+@pytest.fixture
+def photo(monkeypatch):
+    jpeg = io.BytesIO()
+    Image.new("RGB", (40, 30), (60, 90, 50)).save(jpeg, "JPEG")
+    asked = []
+    monkeypatch.setattr(client, "_satellite", lambda box, w, h: asked.append((w, h)) or jpeg.getvalue())
+    return asked
 
 
 def _app():
@@ -60,3 +83,64 @@ def test_unknown_village_codes_never_reach_the_portal(monkeypatch):
 def test_village_without_a_map_is_a_friendly_not_found(portal):
     resp = _app().get("/api/village-map/map/1903030")
     assert resp.status_code == 404 and resp.json()["detail"] == NOT_FOUND
+
+
+def test_pdf_opens_in_the_tab_with_a_clear_name(portal, photo):
+    resp = _app().get(f"/api/village-map/pdf/{DMV}")
+    assert resp.status_code == 200 and resp.headers["content-type"] == "application/pdf"
+    assert resp.headers["content-disposition"] == 'inline; filename="Village-map-Kokapet-1516004.pdf"'
+    assert resp.content.startswith(b"%PDF-") and b"(Village map: Kokapet)" in resp.content
+    (w, h), = photo
+    assert w <= client.MAX_PX and w / h > 1.3  # a landscape A3 frame for a wide village
+
+
+def test_pdf_is_still_made_when_the_photo_is_unavailable(portal, monkeypatch):
+    monkeypatch.setattr(client, "_satellite", lambda box, w, h: None)
+    pdf, name = client.fetch_village_map_pdf(DMV)
+    assert pdf.startswith(b"%PDF-") and name == "Village-map-Kokapet-1516004.pdf"
+
+
+def test_pdf_errors_are_a_readable_page(photo, monkeypatch):
+    monkeypatch.setattr(survey_map, "_village_parcels", lambda dmv: pytest.fail("portal called"))
+    resp = _app().get("/api/village-map/pdf/123")
+    assert resp.status_code == 400 and resp.headers["content-type"].startswith("text/html")
+    assert BAD_INPUT.replace("'", "&#x27;") in resp.text
+
+
+def test_identical_pdf_requests_share_one_build_and_repeats_are_cached(portal, photo, monkeypatch):
+    builds = []
+    real = client._draw
+
+    def slow_draw(*args):
+        builds.append(1)
+        time.sleep(0.3)
+        return real(*args)
+
+    monkeypatch.setattr(client, "_draw", slow_draw)
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(client.fetch_village_map_pdf(DMV)[0])) for _ in range(5)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    client.fetch_village_map_pdf(DMV)
+    assert len(builds) == 1 and len(set(results)) == 1
+
+
+class Reply:
+    def __init__(self, status, ctype="image/jpeg"):
+        self.status_code, self.headers, self.content = status, {"content-type": ctype}, b"jpeg"
+
+
+def test_photo_retries_with_half_the_pixels_when_esri_refuses(monkeypatch):
+    sizes = []
+    replies = iter([Reply(500, "text/html"), Reply(200, "application/json"), Reply(200)])
+    monkeypatch.setattr(client.httpx, "get", lambda url, **kw: sizes.append(kw["params"]["size"]) or next(replies))
+    assert client._satellite((0, 0, 1, 1), 3000, 2000) == b"jpeg"
+    assert sizes == ["3000,2000", "1500,1000", "750,500"]
+
+
+def test_photo_gives_up_quietly_when_esri_is_unreachable(monkeypatch):
+    def down(url, **kw):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(client.httpx, "get", down)
+    assert client._satellite((0, 0, 1, 1), 3000, 2000) is None
