@@ -147,7 +147,7 @@ def test_photo_is_stitched_at_the_nearest_level_and_cropped_to_the_map(monkeypat
 
 def test_a_photo_wider_than_needed_is_scaled_down(monkeypatch):
     _tiles(monkeypatch)
-    photo = Image.open(io.BytesIO(client._satellite((8716200.0, 1966000.0, 8719900.0, 1968000.0))))  # 3.7 km: ~3100 px
+    photo = Image.open(io.BytesIO(client._satellite((8716200.0, 1966000.0, 8722400.0, 1969000.0))))  # 6.2 km: ~2600 px
     assert photo.width == client.MAX_PHOTO_PX
 
 

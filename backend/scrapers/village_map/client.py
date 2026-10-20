@@ -31,8 +31,12 @@ from backend.scrapers.survey_map import client as survey_map
 # 4-23 s for a village and never answered at 4096 pixels, so the photo is stitched from tiles.
 SATELLITE_TILES = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile"
 WORLD = 20037508.34  # half the Web Mercator world, in metres
-PHOTO_PX = 2500  # across the map: ~160 dpi on A3 (the nearest tile level gives 1770-3540)...
-MAX_PHOTO_PX = 3000  # ...and at most this, so the PDF stays ~2 MB
+# The photo's width across the map: the nearest tile level gives 1410-2830 px, capped at 2400
+# (~130-150 dpi on A3). Memory is what limits it: 10 PDFs at once peaked at ~281 MB, against
+# ~344 MB at 2500-3000 px, so the site fits a 512 MB server. The lines and numbers are drawn,
+# so they stay sharp whatever the photo's size.
+PHOTO_PX = 2000
+MAX_PHOTO_PX = 2400
 MAX_LEVEL = 18  # ~0.6 m a pixel, the sharpest Esri holds for much of rural Telangana
 MAX_TILES = 300
 _CACHE_SECONDS = 6 * 3600
