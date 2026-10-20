@@ -677,7 +677,7 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 .rera-name { font-weight: 700; font-size: 15px; }
 .rera-meta { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
 .rera-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.rera-link {
+.rera-link, .map-pdf-link {
   display: inline-flex;
   align-items: center;
   min-height: 40px;
@@ -689,8 +689,52 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   font-size: 13px;
   text-decoration: none;
 }
-.rera-link.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-.rera-link:hover { filter: brightness(0.95); }
+.rera-link.primary, .map-pdf-link { background: var(--primary); border-color: var(--primary); color: #fff; }
+.rera-link:hover, .map-pdf-link:hover { filter: brightness(0.95); }
+.map-pdf-link { gap: 6px; min-height: 44px; font-size: 14px; }
+
+/* ---------- Village map: a whole village, zoomable ---------- */
+.village-map { position: relative; margin: 0; background: #2b2f2c; border-bottom: 1px solid var(--border); }
+.village-map-scroll { overflow: auto; max-height: 70vh; overscroll-behavior: contain; }
+.village-map svg { display: block; height: auto; }
+.village-map .lot { fill: none; stroke: rgba(255, 255, 255, 0.85); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.village-map .lot.road { stroke: rgba(255, 255, 255, 0.5); stroke-dasharray: 4 3; }
+.village-map text {
+  fill: #fff;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke; /* dark edge under the letters so they read on any terrain */
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-linejoin: round;
+}
+.village-map figcaption { font-size: 10px; color: #d9d9d4; padding: 4px 10px; }
+.zoom-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.zoom-controls button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+}
+.zoom-controls button:disabled { opacity: 0.3; cursor: default; }
+.zoom-controls span { min-width: 30px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text); }
+.map-actions { padding: 12px 16px 0; }
 
 /* ---------- mobile web (phones, ≤ 600px) ---------- */
 @media (max-width: 600px) {

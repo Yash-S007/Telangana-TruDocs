@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 // ---------- shared API hook ----------
@@ -1073,6 +1073,163 @@ function SurveyMapForm() {
   )
 }
 
+const VILLAGE_ZOOMS = [1, 2, 4, 8]
+
+// A whole village on the satellite photo: every parcel's outline, and each survey number as big
+// as its parcel allows. Small numbers appear as you zoom in; they're drawn, so they stay sharp.
+function VillageMap({ result }) {
+  // How many times Esri refused the photo; each refusal halves its pixel count.
+  const [coarser, setCoarser] = useState(0)
+  const [zoom, setZoom] = useState(1)
+  const [shownWidth, setShownWidth] = useState(MAP_W)
+  const scroller = useRef(null)
+  const centre = useRef([0.5, 0.5])
+
+  const drawn = useMemo(() => {
+    let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity]
+    for (const p of result.parcels) {
+      for (const ring of p.rings) {
+        for (const ll of ring) {
+          const [x, y] = merc(ll)
+          x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y)
+        }
+      }
+    }
+    // Frame the village with a little room, at the drawing's 4:3 shape.
+    const pad = Math.max(x1 - x0, y1 - y0) * 0.03
+    let halfW = (x1 - x0) / 2 + pad
+    let halfH = (y1 - y0) / 2 + pad
+    if (halfW / halfH < MAP_W / MAP_H) halfW = (halfH * MAP_W) / MAP_H
+    else halfH = (halfW * MAP_H) / MAP_W
+    const box = [(x0 + x1) / 2 - halfW, (y0 + y1) / 2 - halfH, (x0 + x1) / 2 + halfW, (y0 + y1) / 2 + halfH]
+    const toPx = (ll) => {
+      const [x, y] = merc(ll)
+      return [((x - box[0]) / (box[2] - box[0])) * MAP_W, ((box[3] - y) / (box[3] - box[1])) * MAP_H]
+    }
+    const parcels = result.parcels.map((p) => {
+      const rings = p.rings.map((r) => r.map(toPx))
+      const px = rings.flat().map((q) => q[0])
+      const py = rings.flat().map((q) => q[1])
+      const [w, h] = [Math.max(...px) - Math.min(...px), Math.max(...py) - Math.min(...py)]
+      return {
+        d: rings.map((r) => `M${r.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}Z`).join(''),
+        no: p.survey_no,
+        x: (Math.min(...px) + Math.max(...px)) / 2,
+        y: (Math.min(...py) + Math.max(...py)) / 2,
+        size: Math.min(14, 0.45 * h, (0.85 * w) / (0.6 * Math.max(p.survey_no.length, 1))),
+      }
+    })
+    return { box, parcels }
+  }, [result])
+
+  useEffect(() => {
+    const el = scroller.current
+    const watch = new ResizeObserver(() => setShownWidth(el.clientWidth))
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [])
+  // Keep the same spot in the middle while zooming.
+  useLayoutEffect(() => {
+    const el = scroller.current
+    el.scrollLeft = centre.current[0] * el.scrollWidth - el.clientWidth / 2
+    el.scrollTop = centre.current[1] * el.scrollHeight - el.clientHeight / 2
+  }, [zoom])
+  function zoomTo(next) {
+    const el = scroller.current
+    centre.current = [(el.scrollLeft + el.clientWidth / 2) / el.scrollWidth, (el.scrollTop + el.clientHeight / 2) / el.scrollHeight]
+    setZoom(next)
+  }
+
+  const { box } = drawn
+  // Sharper photo when zoomed in, but never sharper than Esri holds (0.6 m a pixel in much of
+  // rural Telangana) nor past its 4096-pixel cap; each refusal retries with half the pixels.
+  const imageW = Math.round(Math.min(4096, (box[2] - box[0]) / 0.6, MAP_W * 2 * zoom) / 2 ** coarser)
+  const image = `${SATELLITE_EXPORT}?${new URLSearchParams({
+    bbox: box.map((v) => v.toFixed(2)).join(','),
+    bboxSR: '3857',
+    imageSR: '3857',
+    size: `${imageW},${Math.round((imageW * MAP_H) / MAP_W)}`,
+    format: 'jpg',
+    f: 'image',
+  })}`
+  const pxPerUnit = (shownWidth * zoom) / MAP_W
+  return (
+    <figure className="village-map">
+      <div className="village-map-scroll" ref={scroller}>
+        <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={{ width: `${zoom * 100}%` }} role="img" aria-label={`Satellite map of ${result.village} village with its survey numbers`}>
+          <image href={image} width={MAP_W} height={MAP_H} preserveAspectRatio="none"
+            onError={() => setCoarser((c) => Math.min(c + 1, 3))} />
+          {drawn.parcels.map((p, i) => <path key={i} d={p.d} className={p.no ? 'lot' : 'lot road'} />)}
+          {drawn.parcels.map((p, i) => {
+            // Shown once it would be at least 7px on screen; never bigger than 18px when zoomed in.
+            const size = Math.min(p.size, 18 / pxPerUnit)
+            return p.no && p.size * pxPerUnit >= 7 && (
+              <text key={i} x={p.x} y={p.y} fontSize={size} strokeWidth={size * 0.22}>{p.no}</text>
+            )
+          })}
+        </svg>
+      </div>
+      <div className="zoom-controls">
+        <button type="button" onClick={() => zoomTo(zoom / 2)} disabled={zoom === VILLAGE_ZOOMS[0]} aria-label="Zoom out">−</button>
+        <span>{zoom}×</span>
+        <button type="button" onClick={() => zoomTo(zoom * 2)} disabled={zoom === VILLAGE_ZOOMS[VILLAGE_ZOOMS.length - 1]} aria-label="Zoom in">+</button>
+      </div>
+      <figcaption>Imagery: Esri, Vantor, Earthstar Geographics · Boundaries: TGRAC village maps</figcaption>
+    </figure>
+  )
+}
+
+function VillageMapResult({ result }) {
+  const surveys = result.parcels.filter((p) => p.survey_no).length
+  const older = result.map_version === '2.5m'
+  return (
+    <div className="result success survey-result">
+      <p className="result-status found">
+        <span className="result-icon">✓</span> {result.village}, {result.mandal}, {result.district} · {surveys} survey numbers
+      </p>
+      <VillageMap key={result.dmv} result={result} />
+      <div className="map-actions">
+        <a className="map-pdf-link" href={`/api/village-map/pdf/${encodeURIComponent(result.dmv)}`} target="_blank" rel="noopener noreferrer">
+          <i className="ti ti-file-download" /> Download PDF
+        </a>
+      </div>
+      <p className="survey-note">
+        {older && 'This village is only on the older map, so outlines can sit 20–50 m from the real spot. '}
+        Zoom in to read the survey numbers in crowded areas. Traced from digitised government village maps; for reference only, not a legal survey.
+      </p>
+    </div>
+  )
+}
+
+function VillageMapForm() {
+  const { get } = useApi()
+  const { result, error, loading, run, setError, reset } = useFormState()
+  const [village, setVillage] = useState(null)
+
+  function onVillage(v) {
+    setVillage(v)
+    reset()
+  }
+
+  function submit(e) {
+    e.preventDefault()
+    if (!village) { setError('Please select a village first.'); return }
+    run(() => get(`/api/village-map/map/${encodeURIComponent(village.dmv)}`))
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Field label="Village / Mandal" required hint="A village’s first map can take up to a minute">
+        <VillageSearch portal="survey-map" onSelect={onVillage} />
+      </Field>
+      <button type="submit" disabled={loading || !village} className={loading ? 'btn-loading' : ''}>
+        {loading ? <><span className="btn-spinner" /> Drawing village map…</> : 'Show Village Map'}
+      </button>
+      {result ? <VillageMapResult result={result} /> : <ResultBox error={error} />}
+    </form>
+  )
+}
+
 const CERTIFICATE_LABELS = {
   registration: 'Registration certificate',
   extension: 'Extension certificate',
@@ -1212,6 +1369,15 @@ const DOCUMENT_TYPES = [
     Form: SurveyMapForm,
   },
   {
+    id: 'village-map',
+    icon: 'ti ti-map-2',
+    navLabel: 'Village Map',
+    tag: 'Land survey',
+    heading: 'Village Map',
+    description: 'A whole village’s survey map on a satellite photo, with every survey number, to view or download as a PDF.',
+    Form: VillageMapForm,
+  },
+  {
     id: 'rera-certificate',
     icon: 'ti ti-certificate',
     navLabel: 'RERA Certificate',
@@ -1308,7 +1474,7 @@ export default function App() {
 
         <h1>Telangana's own <em>property records</em> engine.</h1>
         <p className="tagline">
-          Search property tax, mutation, land records, market values, prohibited lands, survey maps, and RERA certificates — verified live from GHMC, CCLA, IGRS, TGRAC, and TG-RERA, Telangana.
+          Search property tax, mutation, land records, market values, prohibited lands, survey and village maps, and RERA certificates — verified live from GHMC, CCLA, IGRS, TGRAC, and TG-RERA, Telangana.
         </p>
 
         <div className="stat-bar">
