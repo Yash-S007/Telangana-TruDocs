@@ -57,7 +57,10 @@ def _send(client: httpx.Client, path: str, body: dict) -> str:
 
 
 def _client(timeout: float = 60.0) -> httpx.Client:
-    return httpx.Client(base_url=BASE_URL, headers={"User-Agent": USER_AGENT}, timeout=timeout)
+    # The portal sometimes drops a new connection mid-handshake (seen live: SSL EOF after 15 s)
+    # while the next one works; connect once more. Only connecting is retried, so nothing is sent twice.
+    return httpx.Client(base_url=BASE_URL, headers={"User-Agent": USER_AGENT}, timeout=timeout,
+                        transport=httpx.HTTPTransport(retries=1))
 
 
 def _text(html: str) -> str:

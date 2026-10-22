@@ -1414,7 +1414,7 @@ function CdmaPtinForm() {
       <Field label="PTIN Number" required hint="10 digits, on any old tax receipt or notice">
         <input
           inputMode="numeric"
-          placeholder="e.g. 1113012345"
+          placeholder="e.g. 1113300005"
           value={ptin}
           onChange={(e) => { setPtin(e.target.value.replace(/\D/g, '').slice(0, 10)); reset() }}
           autoComplete="off"

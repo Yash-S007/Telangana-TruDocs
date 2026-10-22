@@ -1,6 +1,8 @@
 """CDMA Tax Receipt tests. Synthetic pages shaped like the portal's (made-up owners, PTINs and
 receipt numbers, no real records); the portal itself is faked."""
 import json
+import socket
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from html import escape
@@ -193,6 +195,32 @@ def test_portal_timeouts_and_errors_are_friendly(monkeypatch):
     _raises(PORTAL_TIMEOUT, client.fetch_property, PTIN)
     portal(monkeypatch, pages={"/GetReciptDetails": httpx.ConnectError("down")})
     _raises(PORTAL_DOWN, client.fetch_property, PTIN)
+
+
+def test_a_dropped_connection_is_tried_once_more(monkeypatch):
+    # the portal sometimes closes a new connection mid-handshake (seen live: SSL EOF after 15 s)
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen()
+    server.settimeout(5)
+    accepted = []
+
+    def drop():
+        while True:
+            try:
+                conn, _ = server.accept()
+            except OSError:
+                return
+            accepted.append(1)
+            conn.close()
+
+    threading.Thread(target=drop, daemon=True).start()
+    monkeypatch.setattr(client, "BASE_URL", f"https://127.0.0.1:{server.getsockname()[1]}")
+    try:
+        _raises(PORTAL_DOWN, client.fetch_property, PTIN)
+    finally:
+        server.close()
+    assert len(accepted) == 2
 
 
 @pytest.mark.parametrize("bad", ["", "111399900", "11139990011", "1113-99900", "ABCDEFGHIJ", "1113999001;"])
