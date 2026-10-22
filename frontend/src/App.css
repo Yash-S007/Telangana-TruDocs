@@ -692,6 +692,12 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 .rera-link.primary, .map-pdf-link { background: var(--primary); border-color: var(--primary); color: #fff; }
 .rera-link:hover, .map-pdf-link:hover { filter: brightness(0.95); }
 .map-pdf-link { gap: 6px; min-height: 44px; font-size: 14px; }
+button.rera-link { font-family: inherit; cursor: pointer; }
+button.rera-link:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---------- CDMA tax receipt ---------- */
+.result-subhead { margin: 0; padding: 10px 16px; font-weight: 700; font-size: 13px; background: var(--bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.field-row.total dd { color: var(--primary); font-size: 16px; }
 
 /* ---------- Village map: a whole village, zoomable ---------- */
 .village-map { position: relative; margin: 0; background: #2b2f2c; border-bottom: 1px solid var(--border); }

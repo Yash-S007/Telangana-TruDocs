@@ -1342,6 +1342,185 @@ function ReraForm() {
   )
 }
 
+const rupees = (n) => (n == null ? '-' : `₹${Number(n).toLocaleString('en-IN')}`)
+
+function CdmaTaxResult({ result }) {
+  const { ptin, property, dues, receipts } = result
+  const receiptUrl = (r) => `/api/cdma-tax/receipt?${new URLSearchParams({ ptin, receipt_no: r.receipt_no, slno: r.slno })}`
+  const dueRows = dues && [
+    ['Arrear tax', dues.arrear_tax], ['Arrear interest', dues.arrear_interest],
+    ['Current tax', dues.current_tax], ['Current interest', dues.current_interest],
+    // shown only when the portal charges them, so the rows always add up to the total
+    ...[['Cheque bounce penalty', dues.cheque_bounce_penalty], ['Deviation penalty', dues.deviation_penalty],
+      ['Adjustment from earlier years', dues.adjustment]].filter(([, v]) => v),
+  ]
+  return (
+    <div className="result success">
+      <p className="result-status found">
+        <span className="result-icon">✓</span> PTIN {ptin}{property?.town ? ` · ${property.town}` : ''}
+      </p>
+      {property && (
+        <dl className="field-list">
+          {[['Owner', property.owner], ['Door number', property.door_no], ['Locality', property.locality], ['Usage', property.usage]].map(([k, v]) => (
+            <div className="field-row" key={k}><dt>{k}</dt><dd>{v || '-'}</dd></div>
+          ))}
+        </dl>
+      )}
+      {dues && (
+        <>
+          <p className="result-subhead">Tax due as on {dues.as_on}</p>
+          <dl className="field-list">
+            {dueRows.map(([k, v]) => <div className="field-row" key={k}><dt>{k}</dt><dd>{rupees(v)}</dd></div>)}
+            <div className="field-row total"><dt>Total due</dt><dd>{rupees(dues.total)}</dd></div>
+          </dl>
+        </>
+      )}
+      <p className="result-subhead">{receipts.length ? `${receipts.length} tax receipt${receipts.length === 1 ? '' : 's'}` : 'No tax receipts on the portal for this PTIN yet'}</p>
+      {receipts.length > 0 && (
+        <>
+          <ul className="rera-list receipt-list">
+            {receipts.map((r, i) => (
+              <li className="rera-item" key={i}>
+                <div className="rera-name">{rupees(r.amount)} paid on {r.date}</div>
+                <div className="rera-meta">Period {r.paid_from} to {r.paid_to} · {r.mode} · Receipt no. {r.receipt_no}</div>
+                <div className="rera-links">
+                  {r.slno
+                    ? <a className="rera-link primary" href={receiptUrl(r)} target="_blank" rel="noopener noreferrer">Official receipt PDF&nbsp;↗</a>
+                    : <span className="rera-meta">This receipt isn’t online</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="survey-note">The portal takes up to a minute to make each receipt; the PDF opens in a new tab.</p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function CdmaPtinForm() {
+  const { post } = useApi()
+  const { result, error, loading, run, setError, reset } = useFormState()
+  const [ptin, setPtin] = useState('')
+
+  function submit(e) {
+    e.preventDefault()
+    if (!/^\d{10}$/.test(ptin)) { setError('A PTIN is 10 digits. You can find it on an old tax receipt or notice.'); return }
+    run(() => post('/api/cdma-tax/property', { ptin }))
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Field label="PTIN Number" required hint="10 digits, on any old tax receipt or notice">
+        <input
+          inputMode="numeric"
+          placeholder="e.g. 1113012345"
+          value={ptin}
+          onChange={(e) => { setPtin(e.target.value.replace(/\D/g, '').slice(0, 10)); reset() }}
+          autoComplete="off"
+        />
+      </Field>
+      <button type="submit" disabled={loading} className={loading ? 'btn-loading' : ''}>
+        {loading ? <><span className="btn-spinner" /> Fetching receipts…</> : 'Show Tax Receipts'}
+      </button>
+      {result ? <CdmaTaxResult result={result} /> : <ResultBox error={error} />}
+    </form>
+  )
+}
+
+function CdmaFindForm() {
+  const { post, get } = useApi()
+  const find = useFormState()
+  const lookup = useFormState()
+  const [towns, setTowns] = useState([])
+  const [fields, setFields] = useState({ town_id: '', door_no: '', owner_name: '' })
+  const [picked, setPicked] = useState('')
+  const set = (key) => (e) => { setFields({ ...fields, [key]: e.target.value }); find.reset(); lookup.reset(); setPicked('') }
+
+  useEffect(() => {
+    get('/api/cdma-tax/towns').then(setTowns).catch(() => {})
+  }, [])
+
+  function submit(e) {
+    e.preventDefault()
+    const door = fields.door_no.trim()
+    const owner = fields.owner_name.trim()
+    if (!fields.town_id) { find.setError('Please select the town.'); return }
+    if (!door && !owner) { find.setError('Enter a door number or the owner’s name.'); return }
+    if ((door && door.length < 3) || (owner && owner.length < 3)) { find.setError('Please enter at least 3 characters.'); return }
+    find.run(() => post('/api/cdma-tax/find', fields))
+  }
+
+  function show(ptin) {
+    setPicked(ptin)
+    lookup.run(() => post('/api/cdma-tax/property', { ptin }))
+  }
+
+  const found = find.result
+  return (
+    <form onSubmit={submit}>
+      <Field label="Town" required>
+        <select value={fields.town_id} onChange={set('town_id')}>
+          <option value="">Select town</option>
+          {towns.map((d) => (
+            <optgroup key={d.district_id} label={d.district}>
+              {d.towns.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </Field>
+      <Field label="Door number" hint="Fill any one box">
+        <input placeholder="e.g. 8-1-43" value={fields.door_no} onChange={set('door_no')} maxLength={30} autoComplete="off" />
+      </Field>
+      <Field label="Owner name">
+        <input placeholder="As on the tax records" value={fields.owner_name} onChange={set('owner_name')} maxLength={50} autoComplete="off" />
+      </Field>
+      <button type="submit" disabled={find.loading} className={find.loading ? 'btn-loading' : ''}>
+        {find.loading ? <><span className="btn-spinner" /> Searching…</> : 'Find Property'}
+      </button>
+      {found ? (
+        <div className="result success">
+          <p className="result-status found">
+            <span className="result-icon">✓</span>
+            {found.shown < found.total
+              ? `Showing ${found.shown} of ${found.total} properties. Add more to narrow it down.`
+              : `${found.total} propert${found.total === 1 ? 'y' : 'ies'} found`}
+          </p>
+          <ul className="rera-list">
+            {found.properties.map((p) => (
+              <li className="rera-item" key={p.ptin}>
+                <div className="rera-name">{p.owner}</div>
+                <div className="rera-meta">Door {p.door_no} · {p.locality} · PTIN {p.ptin}</div>
+                <div className="rera-links">
+                  <button type="button" className="rera-link primary" disabled={lookup.loading} onClick={() => show(p.ptin)}>
+                    {lookup.loading && picked === p.ptin ? 'Fetching receipts…' : 'Show tax receipts'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : <ResultBox error={find.error} />}
+      {picked && (lookup.result ? <CdmaTaxResult result={lookup.result} /> : <ResultBox error={lookup.error} />)}
+    </form>
+  )
+}
+
+function CdmaTaxForm() {
+  const [mode, setMode] = useState('ptin')
+  return (
+    <>
+      <Field label="Search By" required>
+        <select value={mode} onChange={(e) => setMode(e.target.value)}>
+          <option value="ptin">PTIN number</option>
+          <option value="find">Door number or owner name</option>
+        </select>
+      </Field>
+      {mode === 'ptin' ? <CdmaPtinForm /> : <CdmaFindForm />}
+    </>
+  )
+}
+
 // ---------- page structure ----------
 const DOCUMENT_TYPES = [
   {
@@ -1361,6 +1540,15 @@ const DOCUMENT_TYPES = [
     heading: 'GHMC Property Tax',
     description: 'Search property tax records by PTIN number within a GHMC circle.',
     Form: PropertyTaxForm,
+  },
+  {
+    id: 'cdma-tax-receipt',
+    icon: 'ti ti-receipt-2',
+    navLabel: 'CDMA Tax Receipt',
+    tag: 'Municipality',
+    heading: 'Property Tax Receipt (CDMA)',
+    description: 'Property tax receipts, tax due and owner details for any Telangana town outside Hyderabad, by PTIN or by door number or owner name. Each receipt downloads as the official PDF.',
+    Form: CdmaTaxForm,
   },
   {
     id: 'pattadar-passbook',
@@ -1513,7 +1701,7 @@ export default function App() {
 
         <h1>Telangana's own <em>property records</em> engine.</h1>
         <p className="tagline">
-          Search property tax, mutation, land records, market values, prohibited lands, survey and village maps, and RERA certificates — verified live from GHMC, CCLA, IGRS, TGRAC, and TG-RERA, Telangana.
+          Search property tax and tax receipts, mutation, land records, market values, prohibited lands, survey and village maps, and RERA certificates — verified live from GHMC, CDMA, CCLA, IGRS, TGRAC, and TG-RERA, Telangana.
         </p>
 
         <div className="stat-bar">
