@@ -1,7 +1,5 @@
-from html import escape
-
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
@@ -16,15 +14,6 @@ _STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
 
 def _status(exc: PortalError) -> int:
     return _STATUS.get(exc.user_message, 502)
-
-
-def _error_page(exc: PortalError) -> HTMLResponse:
-    # PDFs open in a new tab, so a failure has to be a readable page, not JSON.
-    return HTMLResponse(
-        "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
-        f"<title>TruDocs Telangana</title><p style='font:16px sans-serif;padding:24px'>{escape(exc.user_message)}</p>",
-        status_code=_status(exc),
-    )
 
 
 def _pdf(pdf: bytes, filename: str) -> Response:
@@ -71,14 +60,15 @@ def receipt(ptin: str, receipt_no: str, slno: str):
     try:
         return _pdf(*cdma_tax_client.fetch_receipt_pdf(ptin, receipt_no, slno))
     except PortalError as exc:
-        return _error_page(exc)
+        raise HTTPException(status_code=_status(exc), detail=exc.user_message)
 
 
-# What the tool shows for a PTIN, as our own PDF (the official receipts are the route above).
+# Our own PDF of a look-up (the official receipts are the route above). The page shows both in its
+# PDF preview, so errors are JSON like every other route.
 @router.get("/pdf/{ptin}")
 @_threads.route
 def property_pdf(ptin: str):
     try:
         return _pdf(*cdma_tax_client.fetch_property_pdf(ptin))
     except PortalError as exc:
-        return _error_page(exc)
+        raise HTTPException(status_code=_status(exc), detail=exc.user_message)

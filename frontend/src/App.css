@@ -696,9 +696,24 @@ button.rera-link { font-family: inherit; cursor: pointer; }
 button.rera-link:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ---------- CDMA tax receipt ---------- */
-.result-subhead { margin: 0; padding: 10px 16px; font-weight: 700; font-size: 13px; background: var(--bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-.field-row.total dd { color: var(--primary); font-size: 16px; }
-.result-actions { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.documents { margin-top: 16px; }
+
+/* ---------- PDF preview (trudocs-state's frontend shell, in this site's colours) ---------- */
+.status-msg { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0 0; padding: 12px 14px; border: 1px solid transparent; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.55; text-align: left; }
+.status-msg i { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+.status-msg .inline-spinner { margin: 3px 0 0; flex-shrink: 0; }
+.status-msg.success { background: var(--primary-tint); color: var(--primary); border-color: rgba(28, 110, 74, 0.22); }
+.status-msg.info { background: var(--accent-tint); color: #6b4f12; border-color: rgba(207, 159, 63, 0.45); }
+.pdf-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.pdf-meta { font-size: 12px; font-style: italic; color: var(--text-muted); word-break: break-all; }
+.download-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 9px 18px; background: var(--accent-tint); color: var(--primary); border: 1.5px solid rgba(207, 159, 63, 0.45); border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.download-btn:hover { background: var(--accent); border-color: var(--accent); }
+.pdf-preview-wrapper { margin-top: 16px; border: 1.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: #4a4e54; box-shadow: var(--shadow-sm); }
+.pdf-preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--surface); border-bottom: 1.5px solid var(--border); }
+.pdf-preview-bar .download-btn { flex-shrink: 0; min-height: 40px; padding: 6px 12px; }
+.pdf-preview-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.pdf-canvas-container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-height: 700px; overflow-y: auto; padding: 16px; box-sizing: border-box; background: #4a4e54; }
+@media (max-width: 600px) { .pdf-canvas-container { max-height: 460px; padding: 10px; } }
 
 /* ---------- Village map: a whole village, zoomable ---------- */
 .village-map { position: relative; margin: 0; background: #2b2f2c; border-bottom: 1px solid var(--border); }

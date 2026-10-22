@@ -7,7 +7,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from html import escape
 
 import httpx
 import pytest
@@ -337,18 +336,18 @@ def test_bad_receipts_never_reach_the_portal(monkeypatch, ptin, receipt_no, slno
 
 
 @pytest.mark.parametrize("message, status", [(NOT_FOUND, 404), (BAD_INPUT, 400), (PORTAL_DOWN, 502), (PORTAL_TIMEOUT, 502)])
-def test_routes_map_errors_and_pdf_errors_are_readable_pages(monkeypatch, message, status):
+def test_routes_map_errors_to_friendly_messages(monkeypatch, message, status):
     def fail(*_a, **_k):
         raise PortalError(message)
     for name in ("fetch_property", "find_properties", "fetch_receipt_pdf", "fetch_property_pdf"):
         monkeypatch.setattr(client, name, fail)
     app = _app()
+    # the PDFs load into the page's preview, so their errors are JSON like the rest
     for r in (app.post("/api/cdma-tax/property", json={"ptin": PTIN}),
-              app.post("/api/cdma-tax/find", json={"town_id": "1113", "owner_name": "SAMPLE"})):
-        assert r.status_code == status and r.json() == {"detail": message}
-    for r in (app.get("/api/cdma-tax/receipt", params={"ptin": PTIN, "receipt_no": "043700", "slno": "1"}),
+              app.post("/api/cdma-tax/find", json={"town_id": "1113", "owner_name": "SAMPLE"}),
+              app.get("/api/cdma-tax/receipt", params={"ptin": PTIN, "receipt_no": "043700", "slno": "1"}),
               app.get(f"/api/cdma-tax/pdf/{PTIN}")):
-        assert r.status_code == status and r.headers["content-type"].startswith("text/html") and escape(message) in r.text
+        assert r.status_code == status and r.json() == {"detail": message}
 
 
 def test_routes_serve_lookup_towns_and_the_pdf_inline(monkeypatch):
@@ -380,6 +379,7 @@ def test_details_pdf_shows_what_the_page_shows(monkeypatch):
                  "190924000000000000001", "Rs. 1,200", "2023-2024-1 to 2024-2025-2", "043700", "For reference only"):
         assert text.encode() in pdf, text
     assert b"PENALTY" not in pdf and b"ADJUSTMENT" not in pdf  # shown only when charged, as on the page
+    assert pdf.count(b"(Only For Information)") == 1  # the watermark
     assert fake.paths() == ["/GetReciptDetails", "/GetPTDetails_PV"]  # the PDF reused the look-up
 
 
@@ -401,6 +401,7 @@ def test_a_long_receipt_history_continues_on_the_next_page(monkeypatch):
                  "mode": "BD-UPI", "amount": 1132, "slno": "1"} for n in range(60)]
     pdf = client._property_pdf({"ptin": PTIN, "property": None, "dues": None, "receipts": receipts}, datetime.now(client.IST))
     assert pdf_pages(pdf) >= 2 and b"Page 2" in pdf and pdf.count(b"RECEIPT NO.") == pdf_pages(pdf)  # headings repeat
+    assert pdf.count(b"(Only For Information)") == pdf_pages(pdf)  # watermarked on every page
     assert f"MIDPTOP{59:020d}".encode() in pdf
 
 
@@ -413,4 +414,4 @@ def test_rupees_use_indian_grouping_like_the_page(amount, text):
 def test_details_pdf_refuses_bad_ptins_before_the_portal(monkeypatch):
     fake = portal(monkeypatch)
     r = _app().get("/api/cdma-tax/pdf/11139")
-    assert r.status_code == 400 and r.headers["content-type"].startswith("text/html") and fake.calls == []
+    assert r.status_code == 400 and r.json() == {"detail": BAD_INPUT} and fake.calls == []

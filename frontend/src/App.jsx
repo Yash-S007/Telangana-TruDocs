@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import { downloadBlob, renderPdfToCanvas } from './pdf.js'
 
 // ---------- shared API hook ----------
 // Every failure becomes a sentence a user can act on: the server's own message when it
@@ -13,15 +14,25 @@ async function errorMessage(res) {
 }
 
 function useApi() {
-  async function request(path, options) {
+  async function send(path, options) {
     let res
     try {
       res = await fetch(path, options)
-    } catch {
+    } catch (err) {
+      if (err.name === 'AbortError') throw err
       throw new Error("Can't reach TruDocs right now. Please check your internet connection and try again.")
     }
     if (!res.ok) throw new Error(await errorMessage(res))
-    return res.json().catch(() => ({}))
+    return res
+  }
+  async function request(path, options) {
+    return (await send(path, options)).json().catch(() => ({}))
+  }
+  // A PDF for the preview: its bytes and the server's filename.
+  async function pdf(path, signal) {
+    const res = await send(path, { signal })
+    const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') || '')
+    return { blob: await res.blob(), filename: name ? name[1] : 'document.pdf' }
   }
   const post = (path, body) => request(path, {
     method: 'POST',
@@ -29,7 +40,7 @@ function useApi() {
     body: JSON.stringify(body),
   })
   const get = (path) => request(path)
-  return { post, get }
+  return { post, get, pdf }
 }
 
 // Shared loading/error/result state for every form — removes repeated boilerplate.
@@ -1344,74 +1355,129 @@ function ReraForm() {
 
 const rupees = (n) => (n == null ? '-' : `₹${Number(n).toLocaleString('en-IN')}`)
 
-function CdmaTaxResult({ result }) {
-  const { ptin, property, dues, receipts } = result
-  const receiptUrl = (r) => `/api/cdma-tax/receipt?${new URLSearchParams({ ptin, receipt_no: r.receipt_no, slno: r.slno })}`
-  const dueRows = dues && [
-    ['Arrear tax', dues.arrear_tax], ['Arrear interest', dues.arrear_interest],
-    ['Current tax', dues.current_tax], ['Current interest', dues.current_interest],
-    // shown only when the portal charges them, so the rows always add up to the total
-    ...[['Cheque bounce penalty', dues.cheque_bounce_penalty], ['Deviation penalty', dues.deviation_penalty],
-      ['Adjustment from earlier years', dues.adjustment]].filter(([, v]) => v),
-  ]
+// The kit's PDFViewer (trudocs-state/frontend-shell): the PDF's pages on a dark panel, with a download button.
+function PdfViewer({ blob, filename }) {
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    if (!blob || !containerRef.current) return
+    let cancelled = false
+    renderPdfToCanvas(blob, containerRef.current, () => cancelled)
+    return () => { cancelled = true }
+  }, [blob])
+
+  if (!blob) return null
   return (
-    <div className="result success">
-      <p className="result-status found">
-        <span className="result-icon">✓</span> PTIN {ptin}{property?.town ? ` · ${property.town}` : ''}
-      </p>
-      <div className="result-actions">
-        <a className="map-pdf-link" href={`/api/cdma-tax/pdf/${encodeURIComponent(ptin)}`} target="_blank" rel="noopener noreferrer">
-          <i className="ti ti-file-download" /> Download PDF
-        </a>
+    <div className="pdf-preview-wrapper">
+      <div className="pdf-preview-bar">
+        <span className="pdf-preview-label">{filename || 'Preview'}</span>
+        <button type="button" className="download-btn" onClick={() => downloadBlob(blob, filename || 'document.pdf')}>
+          <i className="ti ti-download" /> Download
+        </button>
       </div>
-      {property && (
-        <dl className="field-list">
-          {[['Owner', property.owner], ['Door number', property.door_no], ['Locality', property.locality], ['Usage', property.usage]].map(([k, v]) => (
-            <div className="field-row" key={k}><dt>{k}</dt><dd>{v || '-'}</dd></div>
-          ))}
-        </dl>
-      )}
-      {dues && (
-        <>
-          <p className="result-subhead">Tax due as on {dues.as_on}</p>
-          <dl className="field-list">
-            {dueRows.map(([k, v]) => <div className="field-row" key={k}><dt>{k}</dt><dd>{rupees(v)}</dd></div>)}
-            <div className="field-row total"><dt>Total due</dt><dd>{rupees(dues.total)}</dd></div>
-          </dl>
-        </>
-      )}
-      <p className="result-subhead">{receipts.length ? `${receipts.length} tax receipt${receipts.length === 1 ? '' : 's'}` : 'No tax receipts on the portal for this PTIN yet'}</p>
-      {receipts.length > 0 && (
-        <>
-          <ul className="rera-list receipt-list">
-            {receipts.map((r, i) => (
-              <li className="rera-item" key={i}>
-                <div className="rera-name">{rupees(r.amount)} paid on {r.date}</div>
-                <div className="rera-meta">Period {r.paid_from} to {r.paid_to} · {r.mode} · Receipt no. {r.receipt_no}</div>
-                <div className="rera-links">
-                  {r.slno
-                    ? <a className="rera-link primary" href={receiptUrl(r)} target="_blank" rel="noopener noreferrer">Official receipt PDF&nbsp;↗</a>
-                    : <span className="rera-meta">This receipt isn’t online</span>}
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="survey-note">The portal can take a minute or more to make each receipt; the PDF opens in a new tab.</p>
-        </>
-      )}
+      <div ref={containerRef} className="pdf-canvas-container" />
     </div>
   )
 }
 
+// A look-up and its details PDF together, so the result opens with its preview.
+async function cdmaLookup({ post, pdf }, ptin) {
+  const data = await post('/api/cdma-tax/property', { ptin })
+  return { ...data, doc: { key: 'details', ...(await pdf(`/api/cdma-tax/pdf/${encodeURIComponent(ptin)}`)) } }
+}
+
+// Like the Karnataka EC tool: one document at a time in the PDF preview, our details PDF first,
+// then any official receipt picked from the list underneath.
+function CdmaTaxResult({ result }) {
+  const { pdf } = useApi()
+  const { ptin, property, receipts } = result
+  const [doc, setDoc] = useState(result.doc)  // the PDF on show: {key, blob, filename}
+  const [loading, setLoading] = useState('')  // key of the document being fetched
+  const [error, setError] = useState('')
+  const generation = useRef(0)
+  const controller = useRef(null)
+
+  useEffect(() => {
+    const pending = controller
+    return () => pending.current?.abort()  // a receipt still loading when the result goes away
+  }, [])
+
+  async function show(key, path) {
+    const gen = ++generation.current
+    controller.current?.abort()
+    controller.current = new AbortController()
+    setLoading(key)
+    setError('')
+    try {
+      const file = await pdf(path, controller.current.signal)
+      if (gen === generation.current) setDoc({ key, ...file })
+    } catch (err) {
+      if (gen === generation.current && err.name !== 'AbortError') setError(err.message)
+    } finally {
+      if (gen === generation.current) setLoading('')
+    }
+  }
+
+  const receiptPath = (r) => `/api/cdma-tax/receipt?${new URLSearchParams({ ptin, receipt_no: r.receipt_no, slno: r.slno })}`
+  const button = (key, path, label) => (
+    <button type="button" className="rera-link primary" disabled={Boolean(loading) || doc.key === key} onClick={() => show(key, path)}>
+      {loading === key ? <><span className="inline-spinner" />Loading…</> : doc.key === key ? 'Showing' : label}
+    </button>
+  )
+  return (
+    <>
+      {loading ? (
+        <p className="status-msg info">
+          <span className="inline-spinner" />
+          {loading === 'details' ? 'Preparing the PDF…' : 'Getting the official receipt from the portal. This can take a minute or more…'}
+        </p>
+      ) : error ? <ResultBox error={error} /> : (
+        <p className="status-msg success"><i className="ti ti-circle-check" /> Found! {doc.filename}</p>
+      )}
+      <div className="pdf-actions">
+        <button type="button" className="download-btn" onClick={() => downloadBlob(doc.blob, doc.filename)}>
+          <i className="ti ti-download" /> Download PDF
+        </button>
+        <span className="pdf-meta">{doc.filename}</span>
+      </div>
+      <PdfViewer blob={doc.blob} filename={doc.filename} />
+      <div className="result success documents">
+        <p className="result-status found">
+          <span className="result-icon">✓</span> PTIN {ptin}{property?.town ? ` · ${property.town}` : ''}
+        </p>
+        <ul className="rera-list receipt-list">
+          <li className="rera-item">
+            <div className="rera-name">Property tax details</div>
+            <div className="rera-meta">Owner, tax due and every receipt, for reference</div>
+            <div className="rera-links">{button('details', `/api/cdma-tax/pdf/${encodeURIComponent(ptin)}`, 'Show details')}</div>
+          </li>
+          {receipts.map((r, i) => (
+            <li className="rera-item" key={i}>
+              <div className="rera-name">{rupees(r.amount)} paid on {r.date}</div>
+              <div className="rera-meta">Period {r.paid_from} to {r.paid_to} · {r.mode} · Receipt no. {r.receipt_no}</div>
+              <div className="rera-links">
+                {r.slno ? button(`receipt-${i}`, receiptPath(r), 'Show official receipt') : <span className="rera-meta">This receipt isn’t online</span>}
+              </div>
+            </li>
+          ))}
+        </ul>
+        <p className="survey-note">
+          {receipts.length ? 'The portal can take a minute or more to make each official receipt.' : 'No tax receipts on the portal for this PTIN yet.'}
+        </p>
+      </div>
+    </>
+  )
+}
+
 function CdmaPtinForm() {
-  const { post } = useApi()
+  const api = useApi()
   const { result, error, loading, run, setError, reset } = useFormState()
   const [ptin, setPtin] = useState('')
 
   function submit(e) {
     e.preventDefault()
     if (!/^\d{10}$/.test(ptin)) { setError('A PTIN is 10 digits. You can find it on an old tax receipt or notice.'); return }
-    run(() => post('/api/cdma-tax/property', { ptin }))
+    run(() => cdmaLookup(api, ptin))
   }
 
   return (
@@ -1428,13 +1494,14 @@ function CdmaPtinForm() {
       <button type="submit" disabled={loading} className={loading ? 'btn-loading' : ''}>
         {loading ? <><span className="btn-spinner" /> Fetching receipts…</> : 'Show Tax Receipts'}
       </button>
-      {result ? <CdmaTaxResult result={result} /> : <ResultBox error={error} />}
+      {result ? <CdmaTaxResult key={result.ptin} result={result} /> : <ResultBox error={error} />}
     </form>
   )
 }
 
 function CdmaFindForm() {
-  const { post, get } = useApi()
+  const api = useApi()
+  const { post, get } = api
   const find = useFormState()
   const lookup = useFormState()
   const [towns, setTowns] = useState([])
@@ -1458,7 +1525,7 @@ function CdmaFindForm() {
 
   function show(ptin) {
     setPicked(ptin)
-    lookup.run(() => post('/api/cdma-tax/property', { ptin }))
+    lookup.run(() => cdmaLookup(api, ptin))
   }
 
   const found = find.result
@@ -1506,7 +1573,7 @@ function CdmaFindForm() {
           </ul>
         </div>
       ) : <ResultBox error={find.error} />}
-      {picked && (lookup.result ? <CdmaTaxResult result={lookup.result} /> : <ResultBox error={lookup.error} />)}
+      {picked && (lookup.result ? <CdmaTaxResult key={lookup.result.ptin} result={lookup.result} /> : <ResultBox error={lookup.error} />)}
     </form>
   )
 }

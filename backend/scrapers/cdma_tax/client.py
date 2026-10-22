@@ -8,8 +8,8 @@ No login, captcha, OTP or cookie. Everything is a JSON POST to /CDMA_ARBS/CDMA_P
   GetPTForDownload {MID, PTINNO, SLNO} one receipt as a web page — the portal takes 14-50 s
 The receipt page's own script then posts its HTML to /Download, and the portal answers with
 the official PDF (seal watermark and QR code) in about a second. We do the same.
-A look-up can also be downloaded as our own PDF (fetch_property_pdf): what the tool shows, for
-reference — the official receipts stay the portal's.
+A look-up is also our own PDF (fetch_property_pdf): owner, tax due and receipts, watermarked
+"Only For Information" — the official receipts stay the portal's, untouched.
 """
 import io
 import json
@@ -26,7 +26,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate, Paragraph, Spacer, Table, TableStyle
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.core.rate_limit import RateLimiter
@@ -378,7 +378,20 @@ def _property_pdf(data: dict, now: datetime) -> bytes:
         canvas.drawRightString(A4[0] - MARGIN, 8.4 * mm, f"Page {doc.page}")
         canvas.restoreState()
 
+    def watermark(canvas, doc):  # drawn last, over the page, faint enough to read through
+        canvas.saveState()
+        canvas.setFillColor(MUTED)
+        canvas.setFillAlpha(0.16)
+        canvas.setFont("Helvetica", 54)
+        canvas.translate(A4[0] / 2, A4[1] / 2)
+        canvas.rotate(35)
+        canvas.drawCentredString(0, 0, "Only For Information")
+        canvas.restoreState()
+
     out = io.BytesIO()
-    SimpleDocTemplate(out, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=22 * mm,
-                      title=f"Property tax details: PTIN {data['ptin']}", author="TruDocs").build(story, onFirstPage=footer, onLaterPages=footer)
+    doc = BaseDocTemplate(out, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=22 * mm,
+                          title=f"Property tax details: PTIN {data['ptin']}", author="TruDocs")
+    doc.addPageTemplates([PageTemplate(frames=[Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="body")],
+                                       onPage=footer, onPageEnd=watermark)])
+    doc.build(story)
     return out.getvalue()
