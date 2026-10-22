@@ -8,15 +8,25 @@ No login, captcha, OTP or cookie. Everything is a JSON POST to /CDMA_ARBS/CDMA_P
   GetPTForDownload {MID, PTINNO, SLNO} one receipt as a web page — the portal takes 14-50 s
 The receipt page's own script then posts its HTML to /Download, and the portal answers with
 the official PDF (seal watermark and QR code) in about a second. We do the same.
+A look-up can also be downloaded as our own PDF (fetch_property_pdf): what the tool shows, for
+reference — the official receipts stay the portal's.
 """
+import io
 import json
 import re
 import time
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from html import unescape
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import httpx
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.core.rate_limit import RateLimiter
@@ -278,3 +288,97 @@ def _receipt_form(page: str, ptin: str) -> tuple:
     if not qr:
         raise PortalError(PORTAL_DOWN, "receipt page without its QR code")
     return grid, qr.group(1)
+
+
+# ---------- a look-up as a PDF ----------
+IST = timezone(timedelta(hours=5, minutes=30))  # India has no daylight saving, so no time-zone database is needed
+GREEN, BEIGE, BORDER, MUTED = (colors.HexColor(c) for c in ("#1c6e4a", "#f6f1e6", "#e6e0d0", "#6b6f6c"))
+MARGIN = 15 * mm
+_STYLES = {
+    "title": ParagraphStyle("title", fontName="Helvetica-Bold", fontSize=16, leading=20),
+    "sub": ParagraphStyle("sub", fontName="Helvetica", fontSize=10, leading=13, textColor=MUTED),
+    "head": ParagraphStyle("head", fontName="Helvetica-Bold", fontSize=11, leading=14, spaceBefore=6 * mm, spaceAfter=2 * mm),
+    "label": ParagraphStyle("label", fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=MUTED),
+    "value": ParagraphStyle("value", fontName="Helvetica-Bold", fontSize=10, leading=12),
+    "total": ParagraphStyle("total", fontName="Helvetica-Bold", fontSize=12, leading=14, textColor=GREEN),
+    "cell": ParagraphStyle("cell", fontName="Helvetica", fontSize=9, leading=11, wordWrap="CJK"),  # long numbers may break anywhere
+}
+
+
+def fetch_property_pdf(ptin: str) -> tuple:
+    """(pdf bytes, filename): what the tool shows for a PTIN (owner, tax due, receipts) as a PDF.
+    It reuses the look-up, so right after one it costs the portal nothing."""
+    data = fetch_property(ptin)
+    return _property_pdf(data, datetime.now(IST)), f"CDMA-property-tax-{data['ptin']}.pdf"
+
+
+def _rupees(n) -> str:
+    """Rs. with Indian grouping (1,23,456), as the page shows it; the PDF's built-in fonts have no ₹ sign."""
+    if n is None:
+        return "-"
+    whole, _, frac = str(abs(n)).partition(".")
+    head, groups = whole[:-3], [whole[-3:]]
+    while head:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    return f"{'-' if n < 0 else ''}Rs. {','.join(groups)}{'.' + frac if frac else ''}"
+
+
+def _cells(rows: list, widths: list, header: bool = False) -> Table:
+    """A table in the page's look: beige labels (first column, or the header row), thin borders."""
+    label = ((0, 0), (-1, 0)) if header else ((0, 0), (0, -1))
+    table = Table(rows, colWidths=widths, repeatRows=1 if header else 0)
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.6, BORDER),
+        ("BACKGROUND", *label, BEIGE),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7), ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    return table
+
+
+def _property_pdf(data: dict, now: datetime) -> bytes:
+    p = lambda text, style: Paragraph(escape(str(text) if text not in (None, "") else "-"), _STYLES[style])
+    prop, dues, receipts = data["property"], data["dues"], data["receipts"]
+    story = [p(f"Property Tax Details: PTIN {data['ptin']}", "title"),
+             p(f"{prop['town']}, Telangana" if prop and prop["town"] else "Telangana", "sub")]
+    if prop:
+        story += [Spacer(0, 5 * mm), _cells(
+            [[p(k, "label"), p(v, "value")] for k, v in (("OWNER", prop["owner"]), ("DOOR NUMBER", prop["door_no"]),
+                                                         ("LOCALITY", prop["locality"]), ("USAGE", prop["usage"]))],
+            [42 * mm, 138 * mm])]
+    if dues:
+        rows = [("ARREAR TAX", dues["arrear_tax"]), ("ARREAR INTEREST", dues["arrear_interest"]),
+                ("CURRENT TAX", dues["current_tax"]), ("CURRENT INTEREST", dues["current_interest"]),
+                # only when the portal charges them, so the rows add up to the total (as on the page)
+                *((k, v) for k, v in (("CHEQUE BOUNCE PENALTY", dues["cheque_bounce_penalty"]),
+                                      ("DEVIATION PENALTY", dues["deviation_penalty"]),
+                                      ("ADJUSTMENT FROM EARLIER YEARS", dues["adjustment"])) if v)]
+        story += [p(f"Tax due as on {dues['as_on']}", "head"), _cells(
+            [[p(k, "label"), p(_rupees(v), "value")] for k, v in rows] + [[p("TOTAL DUE", "label"), p(_rupees(dues["total"]), "total")]],
+            [62 * mm, 118 * mm])]
+    count = len(receipts)
+    story.append(p(f"{count} tax receipt{'' if count == 1 else 's'}" if count else "No tax receipts on the portal for this PTIN yet", "head"))
+    if receipts:
+        story.append(_cells(
+            [[p(h, "label") for h in ("DATE", "AMOUNT", "PERIOD PAID", "MODE", "RECEIPT NO.")]]
+            + [[p(r["date"], "cell"), p(_rupees(r["amount"]), "cell"), p(f"{r['paid_from']} to {r['paid_to']}", "cell"),
+                p(r["mode"], "cell"), p(r["receipt_no"], "cell")] for r in receipts],
+            [22 * mm, 26 * mm, 48 * mm, 22 * mm, 62 * mm], header=True))
+
+    def footer(canvas, doc):
+        canvas.saveState()
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(MUTED)
+        canvas.drawString(MARGIN, 12 * mm, "For reference only: not an official receipt or tax demand. "
+                                            "The official receipts are the portal's own PDFs.")
+        canvas.drawString(MARGIN, 8.4 * mm, f"Source: CDMA property tax portal (cdma.cgg.gov.in). "
+                                             f"Made with TruDocs on {now:%d %b %Y, %H:%M} IST.")
+        canvas.drawRightString(A4[0] - MARGIN, 8.4 * mm, f"Page {doc.page}")
+        canvas.restoreState()
+
+    out = io.BytesIO()
+    SimpleDocTemplate(out, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=22 * mm,
+                      title=f"Property tax details: PTIN {data['ptin']}", author="TruDocs").build(story, onFirstPage=footer, onLaterPages=footer)
+    return out.getvalue()

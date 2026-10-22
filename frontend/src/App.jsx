@@ -1359,6 +1359,11 @@ function CdmaTaxResult({ result }) {
       <p className="result-status found">
         <span className="result-icon">✓</span> PTIN {ptin}{property?.town ? ` · ${property.town}` : ''}
       </p>
+      <div className="result-actions">
+        <a className="map-pdf-link" href={`/api/cdma-tax/pdf/${encodeURIComponent(ptin)}`} target="_blank" rel="noopener noreferrer">
+          <i className="ti ti-file-download" /> Download PDF
+        </a>
+      </div>
       {property && (
         <dl className="field-list">
           {[['Owner', property.owner], ['Door number', property.door_no], ['Locality', property.locality], ['Usage', property.usage]].map(([k, v]) => (

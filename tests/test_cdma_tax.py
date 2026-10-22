@@ -1,16 +1,19 @@
 """CDMA Tax Receipt tests. Synthetic pages shaped like the portal's (made-up owners, PTINs and
 receipt numbers, no real records); the portal itself is faked."""
 import json
+import re
 import socket
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from html import escape
 
 import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from reportlab import rl_config
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.routers import cdma_tax as cdma_tax_router
@@ -337,14 +340,15 @@ def test_bad_receipts_never_reach_the_portal(monkeypatch, ptin, receipt_no, slno
 def test_routes_map_errors_and_pdf_errors_are_readable_pages(monkeypatch, message, status):
     def fail(*_a, **_k):
         raise PortalError(message)
-    for name in ("fetch_property", "find_properties", "fetch_receipt_pdf"):
+    for name in ("fetch_property", "find_properties", "fetch_receipt_pdf", "fetch_property_pdf"):
         monkeypatch.setattr(client, name, fail)
     app = _app()
     for r in (app.post("/api/cdma-tax/property", json={"ptin": PTIN}),
               app.post("/api/cdma-tax/find", json={"town_id": "1113", "owner_name": "SAMPLE"})):
         assert r.status_code == status and r.json() == {"detail": message}
-    r = app.get("/api/cdma-tax/receipt", params={"ptin": PTIN, "receipt_no": "043700", "slno": "1"})
-    assert r.status_code == status and r.headers["content-type"].startswith("text/html") and escape(message) in r.text
+    for r in (app.get("/api/cdma-tax/receipt", params={"ptin": PTIN, "receipt_no": "043700", "slno": "1"}),
+              app.get(f"/api/cdma-tax/pdf/{PTIN}")):
+        assert r.status_code == status and r.headers["content-type"].startswith("text/html") and escape(message) in r.text
 
 
 def test_routes_serve_lookup_towns_and_the_pdf_inline(monkeypatch):
@@ -355,3 +359,58 @@ def test_routes_serve_lookup_towns_and_the_pdf_inline(monkeypatch):
     r = app.get("/api/cdma-tax/receipt", params={"ptin": PTIN, "receipt_no": "043700", "slno": "11130000000001"})
     assert r.status_code == 200 and r.content == PDF and r.headers["content-type"] == "application/pdf"
     assert r.headers["content-disposition"] == f'inline; filename="CDMA-tax-receipt-{PTIN}-043700.pdf"'
+    r = app.get(f"/api/cdma-tax/pdf/{PTIN}")
+    assert r.status_code == 200 and r.content.startswith(b"%PDF-") and r.headers["content-type"] == "application/pdf"
+    assert r.headers["content-disposition"] == f'inline; filename="CDMA-property-tax-{PTIN}.pdf"'
+
+
+def pdf_pages(pdf: bytes) -> int:
+    return len(re.findall(rb"/Type /Page[^s]", pdf))
+
+
+def test_details_pdf_shows_what_the_page_shows(monkeypatch):
+    fake = portal(monkeypatch)
+    monkeypatch.setattr(rl_config, "pageCompression", 0)  # page text readable in the bytes
+    client.fetch_property(PTIN)
+    pdf, name = client.fetch_property_pdf(PTIN)
+    assert pdf.startswith(b"%PDF-") and name == f"CDMA-property-tax-{PTIN}.pdf" and pdf_pages(pdf) == 1
+    assert f"(Property tax details: PTIN {PTIN})".encode() in pdf  # the document title
+    for text in (f"Property Tax Details: PTIN {PTIN}", "Siddipet Municipality, Telangana", "SAMPLE OWNER", "9-9-99", "Sample Nagar",
+                 "Residential", "Tax due as on 22/10/2026", "Rs. 500", "Rs. 40", "Rs. 600", "Rs. 1,140", "2 tax receipts",
+                 "190924000000000000001", "Rs. 1,200", "2023-2024-1 to 2024-2025-2", "043700", "For reference only"):
+        assert text.encode() in pdf, text
+    assert b"PENALTY" not in pdf and b"ADJUSTMENT" not in pdf  # shown only when charged, as on the page
+    assert fake.paths() == ["/GetReciptDetails", "/GetPTDetails_PV"]  # the PDF reused the look-up
+
+
+def test_details_pdf_charges_and_empty_parts(monkeypatch):
+    monkeypatch.setattr(rl_config, "pageCompression", 0)
+    data = {"ptin": PTIN, "property": None, "dues": None, "receipts": []}
+    pdf = client._property_pdf(data, datetime(2026, 10, 22, 14, 5, tzinfo=client.IST))
+    assert b"(Telangana)" in pdf and b"No tax receipts on the portal for this PTIN yet" in pdf and b"OWNER" not in pdf
+    assert b"Made with TruDocs on 22 Oct 2026, 14:05 IST." in pdf
+    dues = {"as_on": "22/10/2026", "arrear_tax": 0, "arrear_interest": 0, "current_tax": 123456, "current_interest": 0,
+            "cheque_bounce_penalty": 250, "deviation_penalty": 0, "adjustment": 0, "total": 123706}
+    pdf = client._property_pdf({**data, "dues": dues}, datetime.now(client.IST))
+    assert b"CHEQUE BOUNCE PENALTY" in pdf and b"DEVIATION PENALTY" not in pdf and b"Rs. 1,23,706" in pdf
+
+
+def test_a_long_receipt_history_continues_on_the_next_page(monkeypatch):
+    monkeypatch.setattr(rl_config, "pageCompression", 0)
+    receipts = [{"date": "01/04/2020", "paid_from": "2020-2021-1", "paid_to": "2020-2021-2", "receipt_no": f"MIDPTOP{n:020d}",
+                 "mode": "BD-UPI", "amount": 1132, "slno": "1"} for n in range(60)]
+    pdf = client._property_pdf({"ptin": PTIN, "property": None, "dues": None, "receipts": receipts}, datetime.now(client.IST))
+    assert pdf_pages(pdf) >= 2 and b"Page 2" in pdf and pdf.count(b"RECEIPT NO.") == pdf_pages(pdf)  # headings repeat
+    assert f"MIDPTOP{59:020d}".encode() in pdf
+
+
+@pytest.mark.parametrize("amount, text", [(0, "Rs. 0"), (999, "Rs. 999"), (1534, "Rs. 1,534"), (123456, "Rs. 1,23,456"),
+                                          (12345678, "Rs. 1,23,45,678"), (1534.5, "Rs. 1,534.5"), (-250, "-Rs. 250"), (None, "-")])
+def test_rupees_use_indian_grouping_like_the_page(amount, text):
+    assert client._rupees(amount) == text
+
+
+def test_details_pdf_refuses_bad_ptins_before_the_portal(monkeypatch):
+    fake = portal(monkeypatch)
+    r = _app().get("/api/cdma-tax/pdf/11139")
+    assert r.status_code == 400 and r.headers["content-type"].startswith("text/html") and fake.calls == []
