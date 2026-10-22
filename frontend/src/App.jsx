@@ -1391,7 +1391,7 @@ function CdmaTaxResult({ result }) {
               </li>
             ))}
           </ul>
-          <p className="survey-note">The portal takes up to a minute to make each receipt; the PDF opens in a new tab.</p>
+          <p className="survey-note">The portal can take a minute or more to make each receipt; the PDF opens in a new tab.</p>
         </>
       )}
     </div>
