@@ -1,0 +1,726 @@
+[
+ {
+  "district_id": 118,
+  "district": "Adilabad",
+  "towns": [
+   {
+    "id": 1094,
+    "name": "Adilabad Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 132,
+  "district": "Asifabad",
+  "towns": [
+   {
+    "id": 1307,
+    "name": "Asifabad Municipality"
+   },
+   {
+    "id": 1097,
+    "name": "Kagaznagar Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 131,
+  "district": "Bhadradri",
+  "towns": [
+   {
+    "id": 1308,
+    "name": "Aswaraopeta Municipality"
+   },
+   {
+    "id": 1107,
+    "name": "Kothagudem Municipal Corporation"
+   },
+   {
+    "id": 1128,
+    "name": "Manuguru Municipality"
+   },
+   {
+    "id": 1109,
+    "name": "Yellandu Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 138,
+  "district": "Gadwal(Jogulamba)",
+  "towns": [
+   {
+    "id": 1208,
+    "name": "Alampur Municipality"
+   },
+   {
+    "id": 1036,
+    "name": "Gadwal Municipality"
+   },
+   {
+    "id": 1190,
+    "name": "Ieeja Municipality"
+   },
+   {
+    "id": 1207,
+    "name": "Waddepalle Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 145,
+  "district": "Hanumakonda",
+  "towns": [
+   {
+    "id": 1302,
+    "name": "GWMC-KASHIBUGGA"
+   },
+   {
+    "id": 1303,
+    "name": "GWMC-KAZIPET"
+   },
+   {
+    "id": 1166,
+    "name": "Parakala Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 128,
+  "district": "Jagityal",
+  "towns": [
+   {
+    "id": 1206,
+    "name": "Dharmapuri Municipality"
+   },
+   {
+    "id": 1101,
+    "name": "Jagityal Municipality"
+   },
+   {
+    "id": 1103,
+    "name": "Korutla Municipality"
+   },
+   {
+    "id": 1130,
+    "name": "Metpalli Municipality"
+   },
+   {
+    "id": 1205,
+    "name": "Raikal Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 146,
+  "district": "Jangaon",
+  "towns": [
+   {
+    "id": 1115,
+    "name": "Jangaon Municipality"
+   },
+   {
+    "id": 1319,
+    "name": "Station Ghanpur Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 124,
+  "district": "Jayashankar Bhupalpally",
+  "towns": [
+   {
+    "id": 1169,
+    "name": "Bhupalpally Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 135,
+  "district": "Kamareddy",
+  "towns": [
+   {
+    "id": 1263,
+    "name": "Banswada Municipality"
+   },
+   {
+    "id": 1321,
+    "name": "Bichkunda Municipality"
+   },
+   {
+    "id": 1045,
+    "name": "Kamareddy Municipality"
+   },
+   {
+    "id": 1211,
+    "name": "Yellareddy Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 119,
+  "district": "Karimnagar",
+  "towns": [
+   {
+    "id": 1209,
+    "name": "Choppadandi Municipality"
+   },
+   {
+    "id": 1173,
+    "name": "Huzurabad Municipality"
+   },
+   {
+    "id": 1170,
+    "name": "Jammikunta Municipality"
+   },
+   {
+    "id": 1102,
+    "name": "Karimnagar Municipal Corporation"
+   }
+  ]
+ },
+ {
+  "district_id": 120,
+  "district": "Khammam",
+  "towns": [
+   {
+    "id": 1311,
+    "name": "Edulapuram Municipality"
+   },
+   {
+    "id": 1322,
+    "name": "Kalluru Municipality"
+   },
+   {
+    "id": 1106,
+    "name": "Khammam Municipal Corporation"
+   },
+   {
+    "id": 1175,
+    "name": "Madhira Municipality"
+   },
+   {
+    "id": 1129,
+    "name": "Sattupalli Municipality"
+   },
+   {
+    "id": 1212,
+    "name": "Wyra Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 108,
+  "district": "Mahaboobnagar",
+  "towns": [
+   {
+    "id": 1217,
+    "name": "Bhootpur Municipality"
+   },
+   {
+    "id": 1310,
+    "name": "Devarakadara Municipality"
+   },
+   {
+    "id": 1193,
+    "name": "Jadcherla Municipality"
+   },
+   {
+    "id": 1037,
+    "name": "Mahaboobnagar Municipal Corporation"
+   }
+  ]
+ },
+ {
+  "district_id": 125,
+  "district": "Mahabubabad",
+  "towns": [
+   {
+    "id": 1213,
+    "name": "Dornakal Municipality"
+   },
+   {
+    "id": 1315,
+    "name": "Kesamudram Municipality"
+   },
+   {
+    "id": 1168,
+    "name": "Mahabubabad Municipality"
+   },
+   {
+    "id": 1214,
+    "name": "Maripeda Municipality"
+   },
+   {
+    "id": 1215,
+    "name": "Thorrur Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 133,
+  "district": "Mancherial",
+  "towns": [
+   {
+    "id": 1095,
+    "name": "Bellampally Municipality"
+   },
+   {
+    "id": 1220,
+    "name": "Chennur Municipality"
+   },
+   {
+    "id": 1221,
+    "name": "Kyathanpally Municipality"
+   },
+   {
+    "id": 1222,
+    "name": "Luxettipet Municipality"
+   },
+   {
+    "id": 1098,
+    "name": "Manadamarri Municipality"
+   },
+   {
+    "id": 1099,
+    "name": "Mancherial Municipal Corporation"
+   }
+  ]
+ },
+ {
+  "district_id": 121,
+  "district": "Medak",
+  "towns": [
+   {
+    "id": 1110,
+    "name": "Medak Municipality"
+   },
+   {
+    "id": 1225,
+    "name": "Narsapur Municipality"
+   },
+   {
+    "id": 1224,
+    "name": "Ramayampet Municipality"
+   },
+   {
+    "id": 1223,
+    "name": "Toopran Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 137,
+  "district": "Medchal Malkajgiri",
+  "towns": [
+   {
+    "id": 1320,
+    "name": "Aliyabad Municipality"
+   },
+   {
+    "id": 1323,
+    "name": "Muduchinthalapally Municipality"
+   },
+   {
+    "id": 1325,
+    "name": "Yellampet Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 147,
+  "district": "Mulugu",
+  "towns": [
+   {
+    "id": 1324,
+    "name": "Mulugu Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 140,
+  "district": "Nagarkurnool",
+  "towns": [
+   {
+    "id": 1191,
+    "name": "Atchempeta Municipality"
+   },
+   {
+    "id": 1192,
+    "name": "Kalwakurthy Municipality"
+   },
+   {
+    "id": 1188,
+    "name": "Kollapur Municipality"
+   },
+   {
+    "id": 1189,
+    "name": "Nagarkurnool Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 109,
+  "district": "Nalgonda",
+  "towns": [
+   {
+    "id": 1236,
+    "name": "Chandur Municipality"
+   },
+   {
+    "id": 1234,
+    "name": "Chityala Municipality"
+   },
+   {
+    "id": 1182,
+    "name": "Devarakonda Municipality"
+   },
+   {
+    "id": 1235,
+    "name": "Haliya Municipality"
+   },
+   {
+    "id": 1041,
+    "name": "Miryalaguda Municipality"
+   },
+   {
+    "id": 1305,
+    "name": "Nakrekal Municipality"
+   },
+   {
+    "id": 1042,
+    "name": "Nalgonda Municipal Corporation"
+   },
+   {
+    "id": 1233,
+    "name": "Nandikonda Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 144,
+  "district": "Narayanapet",
+  "towns": [
+   {
+    "id": 1218,
+    "name": "Kosgi Municipality"
+   },
+   {
+    "id": 1317,
+    "name": "Maddur Municipality"
+   },
+   {
+    "id": 1216,
+    "name": "Makthal Municipality"
+   },
+   {
+    "id": 1038,
+    "name": "Narayanapet Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 134,
+  "district": "Nirmal",
+  "towns": [
+   {
+    "id": 1096,
+    "name": "Bhainsa Municipality"
+   },
+   {
+    "id": 1237,
+    "name": "Khanapur Municipality"
+   },
+   {
+    "id": 1100,
+    "name": "Nirmal Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 110,
+  "district": "Nizamabad",
+  "towns": [
+   {
+    "id": 1126,
+    "name": "Armur Municipality"
+   },
+   {
+    "id": 1238,
+    "name": "Bheemgal Municipality"
+   },
+   {
+    "id": 1044,
+    "name": "Bodhan Municipality"
+   },
+   {
+    "id": 1046,
+    "name": "Nizamabad Municipal Corporation"
+   }
+  ]
+ },
+ {
+  "district_id": 129,
+  "district": "Peddapalli",
+  "towns": [
+   {
+    "id": 1239,
+    "name": "Manthani Municipality"
+   },
+   {
+    "id": 1172,
+    "name": "Peddapalli Municipality"
+   },
+   {
+    "id": 1104,
+    "name": "Ramagundam Municipal Corporation"
+   },
+   {
+    "id": 1240,
+    "name": "Sulthanabad Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 111,
+  "district": "Rangareddy",
+  "towns": [
+   {
+    "id": 1204,
+    "name": "Amangal Municipality"
+   },
+   {
+    "id": 1309,
+    "name": "Chevella Municipality"
+   },
+   {
+    "id": 1178,
+    "name": "Ibrahimpatnam Municipality"
+   },
+   {
+    "id": 1304,
+    "name": "Kothur Municipality"
+   },
+   {
+    "id": 1318,
+    "name": "Moinabad Municipality"
+   },
+   {
+    "id": 1187,
+    "name": "Shadnagar Municipality"
+   },
+   {
+    "id": 1202,
+    "name": "Shankarpalle Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 141,
+  "district": "Sangareddy",
+  "towns": [
+   {
+    "id": 1185,
+    "name": "Andole Jogipet Municipality"
+   },
+   {
+    "id": 1312,
+    "name": "Gaddapotharam Municipality"
+   },
+   {
+    "id": 1313,
+    "name": "Gummadidala Municipality"
+   },
+   {
+    "id": 1326,
+    "name": "Indresham Municipality"
+   },
+   {
+    "id": 1314,
+    "name": "Isnapur Municipality"
+   },
+   {
+    "id": 1327,
+    "name": "Jinnaram Municipality"
+   },
+   {
+    "id": 1316,
+    "name": "Kohir Municipality"
+   },
+   {
+    "id": 1241,
+    "name": "Narayankhed Municipality"
+   },
+   {
+    "id": 1111,
+    "name": "Sadasivapet Municipality"
+   },
+   {
+    "id": 1112,
+    "name": "Sangareddy Municipality"
+   },
+   {
+    "id": 1114,
+    "name": "Zaheerabad Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 130,
+  "district": "Siddipet",
+  "towns": [
+   {
+    "id": 1245,
+    "name": "Cheriyal Municipality"
+   },
+   {
+    "id": 1186,
+    "name": "Dubbaka Municipality"
+   },
+   {
+    "id": 1183,
+    "name": "Gajwel Pragnapur Municipality"
+   },
+   {
+    "id": 1174,
+    "name": "Husnabad Municipality"
+   },
+   {
+    "id": 1113,
+    "name": "Siddipet Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 127,
+  "district": "Siricilla",
+  "towns": [
+   {
+    "id": 1105,
+    "name": "Sircilla Municipality"
+   },
+   {
+    "id": 1171,
+    "name": "Vemulavada Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 142,
+  "district": "Suryapet",
+  "towns": [
+   {
+    "id": 1181,
+    "name": "Huzurnagar Municipality"
+   },
+   {
+    "id": 1180,
+    "name": "Kodad Municipality"
+   },
+   {
+    "id": 1246,
+    "name": "Neredcherla Municipality"
+   },
+   {
+    "id": 1043,
+    "name": "Suryapet Municipality"
+   },
+   {
+    "id": 1247,
+    "name": "Thirumalagiri Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 136,
+  "district": "Vikarabad",
+  "towns": [
+   {
+    "id": 1249,
+    "name": "Kodangal Municipality"
+   },
+   {
+    "id": 1248,
+    "name": "Pargi Municipality"
+   },
+   {
+    "id": 1056,
+    "name": "Tandur Municipality"
+   },
+   {
+    "id": 1058,
+    "name": "Vikarabad Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 139,
+  "district": "Wanaparthy",
+  "towns": [
+   {
+    "id": 1254,
+    "name": "Amarchinta Municipality"
+   },
+   {
+    "id": 1253,
+    "name": "Atmakur Municipality"
+   },
+   {
+    "id": 1251,
+    "name": "Kothakota Municipality"
+   },
+   {
+    "id": 1252,
+    "name": "Pebbair Municipality"
+   },
+   {
+    "id": 1039,
+    "name": "Wanaparthy Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 123,
+  "district": "Warangal",
+  "towns": [
+   {
+    "id": 1167,
+    "name": "Narsampet Municipality"
+   },
+   {
+    "id": 1250,
+    "name": "Wardhannapet Municipality"
+   }
+  ]
+ },
+ {
+  "district_id": 143,
+  "district": "Yadadri Bhuvanagiri",
+  "towns": [
+   {
+    "id": 1257,
+    "name": "Alair Municipality"
+   },
+   {
+    "id": 1040,
+    "name": "Bhongir Municipality"
+   },
+   {
+    "id": 1256,
+    "name": "Choutuppal Municipality"
+   },
+   {
+    "id": 1255,
+    "name": "Mothkur Municipality"
+   },
+   {
+    "id": 1258,
+    "name": "Pochampally Municipality"
+   },
+   {
+    "id": 1259,
+    "name": "Yadagiri Gutta Municipality"
+   }
+  ]
+ }
+]

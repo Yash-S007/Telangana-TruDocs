@@ -7,6 +7,7 @@ Real-estate document search for Telangana. Python (FastAPI) backend, React+Vite 
 Working end-to-end against the live government portals:
 - **GHMC Mutation Status** — fully working.
 - **GHMC Property Tax Search** — fully working (circle is a required field on the portal, not optional).
+- **CDMA Property Tax Receipt** — fully working, no login, captcha or OTP (cdma.cgg.gov.in, every Telangana town outside GHMC). Enter a 10-digit PTIN, or pick the town and type a door number or owner name (3+ characters; up to 100 matches shown) to find it. Results show in a PDF preview with **Download PDF**, as in the Karnataka EC tool: first our own A4 PDF of the owner, door number, locality, usage, the tax due today (arrear and current, with interest) and every receipt on the portal, watermarked "Only For Information" (it reuses the look-up, so it costs the portal nothing extra); then any receipt's official PDF on request, the portal's own and untouched (seal watermark and QR code). The preview uses pdf.js (`pdfjs-dist`, as in trudocs-state's frontend shell), loaded only when a preview opens. The portal takes 14–50 s to make a receipt (over a minute when many are asked for at once), so PDFs are cached 6 hours (last 64 kept) and look-ups 5 minutes. The town list is `backend/data/cdma_towns.json`, rebuilt with `python -m backend.scripts.scrape_cdma_towns`.
 - **Adangal Extract (Pahani)** — fully working, including the final search submit. (Note: survey/khata number dropdowns come back empty for most villages tried so far — that appears to be sparse data on the portal's side, not a bug on ours; the search itself correctly returns "No RoR-1B Details Found" for a number with no record, confirmed live.)
 - **Land Market Value (IGRS unit rates)** — fully working, no login or captcha. Outside Hyderabad: village search over a pre-scraped list (`backend/scripts/scrape_market_value_hierarchy.py`). Hyderabad: division + locality name, searched live (the portal matches the start of the name, 3+ letters). Shows only what the official page shows (land ₹/sq. yard and effective date): the portal comments out its apartment-rate column, and its apartment search returns 404.
 - **Prohibited Lands (Section 22A)** — fully working, no login or captcha (IGRS `openProhibitedProperties.htm`). Village search over a pre-scraped list (`backend/scripts/scrape_prohibited_lands_hierarchy.py`); Hyderabad is division + SRO office (non-agriculture only). Shows the official PDF for each 22-A(1) category (Waqf and Endowment aren't online on the portal either) and the survey-wise list with a link to each order. A Hyderabad SRO list is ~6,000 rows and takes the portal ~30 s, so lists are cached per process for 6 hours.
@@ -48,7 +49,7 @@ Tests (parsers, validation, error mapping and single-flight — no network, synt
 Load tests (server running) fire N searches at the same moment at the live portals. Market value and prohibited
 lands throttle themselves to 2 portal requests a second and cache repeats for 6 hours; land details solves the
 captcha for each search, and identical searches share one flow; survey map caches each village and sends
-at most 2 searches to the government map server at once; village map shares survey map's cache and builds each PDF once (the last 8 are kept); RERA solves its captcha per search and caches results for 6 hours:
+at most 2 searches to the government map server at once; village map shares survey map's cache and builds each PDF once (the last 8 are kept); RERA solves its captcha per search and caches results for 6 hours; CDMA tax looks up PTINs from no town (`--ptin` for one you may look up, which also downloads its first receipt):
 ```
 .venv/bin/python -m backend.scripts.load_test_market_value --base http://localhost:8000 -n 10
 .venv/bin/python -m backend.scripts.load_test_market_value --base http://localhost:8000 -n 10 --same
@@ -62,4 +63,6 @@ at most 2 searches to the government map server at once; village map shares surv
 .venv/bin/python -m backend.scripts.load_test_village_map --base http://localhost:8000 -n 10 --same
 .venv/bin/python -m backend.scripts.load_test_rera --base http://localhost:8000 -n 10
 .venv/bin/python -m backend.scripts.load_test_rera --base http://localhost:8000 -n 10 --same
+.venv/bin/python -m backend.scripts.load_test_cdma_tax --base http://localhost:8000 -n 10
+.venv/bin/python -m backend.scripts.load_test_cdma_tax --base http://localhost:8000 -n 10 --same
 ```
