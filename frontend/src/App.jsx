@@ -1593,6 +1593,134 @@ function CdmaTaxForm() {
   )
 }
 
+const bpassDocPath = (fileNo, kind) => `/api/bpass/document?${new URLSearchParams({ file_no: fileNo, kind })}`
+
+// An application and its main letter together, so the result opens with its preview.
+async function bpassLookup({ post, pdf }, fileNo) {
+  const data = await post('/api/bpass/application', { file_no: fileNo })
+  const first = data.documents[0]
+  return { ...data, doc: first ? { key: first.kind, ...(await pdf(bpassDocPath(data.file_no, first.kind))) } : null }
+}
+
+// Like the CDMA tool: the official letter in the PDF preview, the application's details, and
+// its other letters underneath to switch the preview.
+function BpassResult({ result }) {
+  const { pdf } = useApi()
+  const [doc, setDoc] = useState(result.doc)  // the letter on show: {key, blob, filename}
+  const [loading, setLoading] = useState('')  // kind of the letter being fetched
+  const [error, setError] = useState('')
+  const generation = useRef(0)
+  const controller = useRef(null)
+
+  useEffect(() => {
+    const pending = controller
+    return () => pending.current?.abort()  // a letter still loading when the result goes away
+  }, [])
+
+  async function show(kind) {
+    const gen = ++generation.current
+    controller.current?.abort()
+    controller.current = new AbortController()
+    setLoading(kind)
+    setError('')
+    try {
+      const file = await pdf(bpassDocPath(result.file_no, kind), controller.current.signal)
+      if (gen === generation.current) setDoc({ key: kind, ...file })
+    } catch (err) {
+      if (gen === generation.current && err.name !== 'AbortError') setError(err.message)
+    } finally {
+      if (gen === generation.current) setLoading('')
+    }
+  }
+
+  const facts = [
+    ['Status', result.status], ['Approval for', result.approval_for], ['Type', result.type],
+    ['Applied on', result.applied_on], ['Decided on', result.decided_on],
+    ['Town', [result.town, result.district].filter(Boolean).join(', ')],
+    ['Survey / plot', [result.survey_no && `Survey ${result.survey_no}`, result.plot_no && `Plot ${result.plot_no}`].filter(Boolean).join(' · ')],
+    ['Locality', result.locality],
+  ].filter(([, v]) => v)
+  return (
+    <>
+      {loading ? (
+        <p className="status-msg info"><span className="inline-spinner" />Getting the letter from the portal…</p>
+      ) : error ? <ResultBox error={error} /> : doc ? (
+        <p className="status-msg success"><i className="ti ti-circle-check" /> Found! {doc.filename}</p>
+      ) : (
+        <p className="status-msg info"><i className="ti ti-info-circle" /> Found, but the portal holds no letters for this application.</p>
+      )}
+      {doc && (
+        <>
+          <div className="pdf-actions">
+            <button type="button" className="download-btn" onClick={() => downloadBlob(doc.blob, doc.filename)}>
+              <i className="ti ti-download" /> Download PDF
+            </button>
+            <span className="pdf-meta">{doc.filename}</span>
+          </div>
+          <PdfViewer blob={doc.blob} filename={doc.filename} />
+        </>
+      )}
+      <div className="result success documents">
+        <p className="result-status found">
+          <span className="result-icon">✓</span> {result.file_no}{result.town ? ` · ${result.town}` : ''}
+        </p>
+        <dl className="field-list">
+          {facts.map(([k, v]) => <div className="field-row" key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+        </dl>
+        {result.documents.length > 0 && (
+          <ul className="rera-list receipt-list">
+            {result.documents.map((d) => (
+              <li className="rera-item" key={d.kind}>
+                <div className="rera-name">{d.label}</div>
+                <div className="rera-links">
+                  <button type="button" className="rera-link primary" disabled={Boolean(loading) || doc?.key === d.kind} onClick={() => show(d.kind)}>
+                    {loading === d.kind ? <><span className="inline-spinner" />Loading…</> : doc?.key === d.kind ? 'Showing' : 'Show'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="survey-note">From the old TG-bPASS portal: applications filed before December 2025. Newer ones are on BuildNow.</p>
+      </div>
+    </>
+  )
+}
+
+function BpassForm() {
+  const api = useApi()
+  const { result, error, loading, run, setError, reset } = useFormState()
+  const [fileNo, setFileNo] = useState('')
+
+  function submit(e) {
+    e.preventDefault()
+    const value = fileNo.trim().toUpperCase()
+    if (!/^[A-Z0-9][A-Z0-9/-]{4,39}$/.test(value)) { setError('Please enter the TG-bPASS file number, as on the permission letter.'); return }
+    run(() => bpassLookup(api, value))
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <p className="status-msg info form-notice">
+        <i className="ti ti-info-circle" /> Only applications filed on TG-bPASS before December 2025 are available here. Newer ones are on BuildNow.
+      </p>
+      <Field label="File number" required hint="On the permission letter or acknowledgement">
+        <input
+          placeholder="e.g. 123456/XXXX/0123/2025"
+          value={fileNo}
+          onChange={(e) => { setFileNo(e.target.value.replace(/\s/g, '')); reset() }}
+          autoComplete="off"
+          autoCapitalize="characters"
+        />
+      </Field>
+      <button type="submit" disabled={loading} className={loading ? 'btn-loading' : ''}>
+        {loading ? <><span className="btn-spinner" /> Fetching permission…</> : 'Show Building Permission'}
+      </button>
+      {result ? <BpassResult key={result.file_no} result={result} /> : <ResultBox error={error} />}
+    </form>
+  )
+}
+
 // ---------- page structure ----------
 const DOCUMENT_TYPES = [
   {
@@ -1621,6 +1749,15 @@ const DOCUMENT_TYPES = [
     heading: 'Property Tax Receipt (CDMA)',
     description: 'Property tax receipts, tax due and owner details for any Telangana town outside Hyderabad, by PTIN or by door number or owner name. Each receipt downloads as the official PDF.',
     Form: CdmaTaxForm,
+  },
+  {
+    id: 'building-permission',
+    icon: 'ti ti-building',
+    navLabel: 'Building Permission',
+    tag: 'TG-bPASS',
+    heading: 'Building Permission (TG‑bPASS)',  // a non-breaking hyphen keeps TG-bPASS on one line
+    description: 'The status of a building permission filed on TG-bPASS before December 2025, and its official letters (permit order, letter of approval to start work), by file number.',
+    Form: BpassForm,
   },
   {
     id: 'pattadar-passbook',
@@ -1773,7 +1910,7 @@ export default function App() {
 
         <h1>Telangana's own <em>property records</em> engine.</h1>
         <p className="tagline">
-          Search property tax and tax receipts, mutation, land records, market values, prohibited lands, survey and village maps, and RERA certificates — verified live from GHMC, CDMA, CCLA, IGRS, TGRAC, and TG-RERA, Telangana.
+          Search property tax and tax receipts, building permissions, mutation, land records, market values, prohibited lands, survey and village maps, and RERA certificates — verified live from GHMC, CDMA, TG-bPASS, CCLA, IGRS, TGRAC, and TG-RERA, Telangana.
         </p>
 
         <div className="stat-bar">

@@ -704,6 +704,7 @@ button.rera-link:disabled { opacity: 0.6; cursor: not-allowed; }
 .status-msg .inline-spinner { margin: 3px 0 0; flex-shrink: 0; }
 .status-msg.success { background: var(--primary-tint); color: var(--primary); border-color: rgba(28, 110, 74, 0.22); }
 .status-msg.info { background: var(--accent-tint); color: #6b4f12; border-color: rgba(207, 159, 63, 0.45); }
+.status-msg.form-notice { margin: 0 0 16px; }
 .pdf-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .pdf-meta { font-size: 12px; font-style: italic; color: var(--text-muted); word-break: break-all; }
 .download-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 9px 18px; background: var(--accent-tint); color: var(--primary); border: 1.5px solid rgba(207, 159, 63, 0.45); border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
