@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.routers import adangal, cdma_tax, ghmc, health, market_value, pattadar_passbook, prohibited_lands, rera, survey_map, village_map
+from backend.routers import adangal, bpass, cdma_tax, ghmc, health, market_value, pattadar_passbook, prohibited_lands, rera, survey_map, village_map
 
 logger = logging.getLogger(__name__)
 # httpx logs every portal URL at INFO, and the passbook search puts the passbook number
@@ -60,6 +60,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(ghmc.router)
 app.include_router(cdma_tax.router)
+app.include_router(bpass.router)
 app.include_router(adangal.router)
 app.include_router(pattadar_passbook.router)
 app.include_router(market_value.router)
