@@ -1701,6 +1701,9 @@ function BpassForm() {
 
   return (
     <form onSubmit={submit}>
+      <p className="status-msg info form-notice">
+        <i className="ti ti-info-circle" /> Only applications filed on TG-bPASS before December 2025 are available here. Newer ones are on BuildNow.
+      </p>
       <Field label="File number" required hint="On the permission letter or acknowledgement">
         <input
           placeholder="e.g. 123456/XXXX/0123/2025"
