@@ -1,0 +1,38 @@
+/* Telangana additions to the TruDocs shell's styles (global.css stays as shipped). */
+
+/* The shell writes section numbers as '0' + n, which turns tool 10 into "010": two digits always. */
+@media (min-width: 768px) {
+  .tool-section .page-heading::before {
+    content: counter(tool-counter, decimal-leading-zero);
+  }
+}
+
+/* iPhones zoom the page into any field under 16px when it's tapped; the shell's fields are 15px. */
+@media (max-width: 767px) {
+  .field input,
+  .field select {
+    font-size: 16px;
+  }
+}
+
+/* Safari (Mac and iPhone) ignores a dropdown's height and draws a thin native box (22-25px tall
+   next to 48px inputs) unless the native look is off; the arrow is drawn here instead. */
+.field select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236b6f6c' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+
+.field select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(10, 61, 46, 0.12);
+  outline: none;
+}
+
+/* Chrome's own value; Safari only dimmed disabled dropdowns through the native look. */
+.field select:disabled {
+  opacity: 0.7;
+}

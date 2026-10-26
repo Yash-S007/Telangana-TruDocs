@@ -1,0 +1,83 @@
+:root {
+  /* ── Page surfaces ──────────────────────────────────────── */
+  --bg:        #f7f4ec;
+  --surface:   #ffffff;
+  --surface-2: #f0ede5;
+  --surface-3: #e8e4db;
+
+  /* ── Navigation (forest green) ─────────────────────────── */
+  --nav-bg:            #0a3d2e;
+  --nav-text:          rgba(255, 255, 255, 0.55);
+  --nav-text-strong:   #ffffff;
+  --nav-text-muted:    rgba(255, 255, 255, 0.35);
+  --nav-hover:         rgba(255, 255, 255, 0.07);
+  --nav-active-border: #f5c45e;
+
+  /* ── Primary action (forest green) ─────────────────────── */
+  --primary:      #0a3d2e;
+  --primary-hover:#0d4f3b;
+  --primary-soft: #0a7a4a;
+  --primary-tint: #eaf1ea;
+
+  /* ── Accent (gold) ──────────────────────────────────────── */
+  --accent:      #f5c45e;
+  --accent-soft: #fdf3d5;
+  --accent-hover:#e6aa3c;
+
+  /* ── Live indicator ─────────────────────────────────────── */
+  --live-green:  #22C55E;
+
+  /* ── Text ───────────────────────────────────────────────── */
+  --text:        #252525;
+  --text-muted:  #717182;
+  --text-faint:  #9e9ea8;
+
+  /* ── Borders (green-tinted) ─────────────────────────────── */
+  --border:        rgba(10, 61, 46, 0.10);
+  --border-strong: rgba(10, 61, 46, 0.22);
+
+  /* ── Semantic colors ────────────────────────────────────── */
+  --info-bg:       #EFF6FF;
+  --info-text:     #1E4EAA;
+  --info-border:   #93C5FD;
+  --success-bg:    #eaf1ea;
+  --success-text:  #0a3d2e;
+  --success-border:rgba(10, 61, 46, 0.22);
+  --danger-bg:     #FFF1F1;
+  --danger-text:   #9B1C1C;
+  --danger-border: #FCA5A5;
+  --warning-bg:    #FFFBEB;
+  --warning-text:  #78350F;
+  --warning-border:#FCD34D;
+
+  /* ── Typography ─────────────────────────────────────────── */
+  --font-display: "Instrument Serif", "Georgia", serif;
+  --font-body:    "Inter Tight", system-ui, -apple-system, sans-serif;
+  --font-mono:    "JetBrains Mono", "Courier New", monospace;
+
+  /* ── Radius ─────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  /* ── Shadows ────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(10, 61, 46, 0.07);
+  --shadow:    0 2px 8px rgba(10, 61, 46, 0.10);
+  --shadow-lg: 0 8px 24px rgba(10, 61, 46, 0.12);
+  --shadow-xl: 0 20px 48px rgba(10, 61, 46, 0.18);
+
+  --elevation-1: 0 1px 2px rgba(10, 61, 46, 0.05);
+  --elevation-2: 0 2px 6px rgba(10, 61, 46, 0.07);
+  --elevation-3: 0 6px 18px rgba(10, 61, 46, 0.09);
+  --elevation-4: 0 16px 40px rgba(10, 61, 46, 0.13);
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  --nav-h: 60px;
+
+  /* ── Animation ──────────────────────────────────────────── */
+  --anim-fast: 120ms;
+  --anim-base: 180ms;
+  --anim-slow: 280ms;
+  --anim-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
