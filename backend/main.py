@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.routers import adangal, bpass, cdma_tax, ghmc, health, market_value, pattadar_passbook, prohibited_lands, rera, survey_map, village_map
+from backend.routers import adangal, bpass, cdma_tax, ghmc, health, hydra_ftl, market_value, pattadar_passbook, prohibited_lands, rera, survey_map, village_map
 
 logger = logging.getLogger(__name__)
 # httpx logs every portal URL at INFO, and the passbook search puts the passbook number
@@ -68,6 +68,7 @@ app.include_router(prohibited_lands.router)
 app.include_router(survey_map.router)
 app.include_router(rera.router)
 app.include_router(village_map.router)
+app.include_router(hydra_ftl.router)
 
 # Static frontend mount MUST come last so /api/* routes above always win.
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
