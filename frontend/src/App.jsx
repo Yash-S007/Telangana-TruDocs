@@ -43,7 +43,6 @@ function useApi() {
   return { post, get, pdf }
 }
 
-// Shared loading/error/result state for every form — removes repeated boilerplate.
 function useFormState() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
@@ -142,36 +141,8 @@ function ResultBox({ error, result, children }) {
       )}
 
       {result.found && result.rows?.length > 0 && <MarketValueTable rows={result.rows} />}
-      {result.found && children}
-    </div>
-  )
-}
 
-// Same columns, in the same order, as the official IGRS results page. On phones each
-// row becomes a labelled card (stack-on-mobile).
-function MarketValueTable({ rows }) {
-  return (
-    <div className="portal-table-wrapper">
-      <table className="stack-on-mobile">
-        <thead>
-          <tr>
-            <th>Ward-Block</th>
-            <th>Locality</th>
-            <th>Land Value (₹ per sq. yard)</th>
-            <th>Effective Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td data-label="Ward-Block">{r.ward_block}</td>
-              <td data-label="Locality">{r.locality}</td>
-              <td data-label="Land Value (₹/sq. yd)">{r.land_rate_per_sq_yard}</td>
-              <td data-label="Effective Date">{r.effective_date}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {result.found && children}
     </div>
   )
 }
@@ -188,8 +159,6 @@ function Field({ label, required, hint, children }) {
   )
 }
 
-// Select with inline loading spinner — used while survey/khata options are
-// being fetched from the government portal.
 function SelectLoading({ loading, children, ...props }) {
   return (
     <div className="select-wrap">
@@ -199,9 +168,6 @@ function SelectLoading({ loading, children, ...props }) {
   )
 }
 
-// Village typeahead — single input that searches the pre-scraped hierarchy.
-// All four IDs (district, division, mandal, village) are returned to the
-// parent via onSelect so the final search call has everything it needs.
 function VillageSearch({ portal, onSelect }) {
   const { get } = useApi()
   const [query, setQuery] = useState('')
@@ -303,7 +269,36 @@ function VillageSearch({ portal, onSelect }) {
   )
 }
 
+// ---------- Market Value table ----------
+function MarketValueTable({ rows }) {
+  return (
+    <div className="portal-table-wrapper">
+      <table className="stack-on-mobile">
+        <thead>
+          <tr>
+            <th>Ward-Block</th>
+            <th>Locality</th>
+            <th>Land Value (₹ per sq. yard)</th>
+            <th>Effective Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td data-label="Ward-Block">{r.ward_block}</td>
+              <td data-label="Locality">{r.locality}</td>
+              <td data-label="Land Value (₹/sq. yd)">{r.land_rate_per_sq_yard}</td>
+              <td data-label="Effective Date">{r.effective_date}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // ---------- document forms ----------
+
 function MutationForm() {
   const { post } = useApi()
   const { result, error, loading, run } = useFormState()
@@ -586,7 +581,7 @@ function MarketValueForm() {
           <option value="hyderabad">Hyderabad (GHMC): search by locality</option>
         </select>
       </Field>
-      {area === 'village' ? <VillageMarketValueForm /> : <HyderabadMarketValueForm />}
+      {area === 'village' ? <VillageMarketValueForm key="village" /> : <HyderabadMarketValueForm key="hyderabad" />}
     </>
   )
 }
@@ -703,6 +698,7 @@ function HyderabadMarketValueForm() {
   )
 }
 
+// ---------- Prohibited Lands (Section 22A) ----------
 const KIND_LABELS = { AGRI: 'Agriculture', NONAGRI: 'Non-Agriculture' }
 const SURVEY_ROWS_SHOWN = 200
 
@@ -1963,6 +1959,24 @@ function HydraFtlForm() {
 // ---------- page structure ----------
 const DOCUMENT_TYPES = [
   {
+    id: 'land-details',
+    icon: 'ti ti-id-badge-2',
+    navLabel: 'Land Details',
+    tag: 'Revenue dept',
+    heading: 'Land Details Search',
+    description: "Agricultural land status and ownership from Bhu Bharati — by village + survey/khata number, or by passbook number and the last 4 digits of the owner's Aadhaar.",
+    Form: LandDetailsForm,
+  },
+  {
+    id: 'adangal',
+    icon: 'ti ti-map-2',
+    navLabel: 'Adangal (Pahani)',
+    tag: 'Revenue dept',
+    heading: 'Adangal Extract (Pahani)',
+    description: 'Land ownership, cultivation, and usage record for agricultural land by village and survey number.',
+    Form: AdangalForm,
+  },
+  {
     id: 'ghmc-mutation',
     icon: 'ti ti-home-2',
     navLabel: 'GHMC Mutation',
@@ -1999,22 +2013,31 @@ const DOCUMENT_TYPES = [
     Form: BpassForm,
   },
   {
-    id: 'pattadar-passbook',
-    icon: 'ti ti-id-badge-2',
-    navLabel: 'Land Details Search',
-    tag: 'Revenue dept',
-    heading: 'Land Details Search',
-    description: 'Agricultural land status and ownership from Bhu Bharati — by village + survey/khata number, or by passbook number and the last 4 digits of the owner’s Aadhaar.',
-    Form: LandDetailsForm,
+    id: 'survey-map',
+    icon: 'ti ti-map-search',
+    navLabel: 'Survey Map',
+    tag: 'Land survey',
+    heading: 'Survey Map',
+    description: "A survey number's boundary on a satellite map, with its corner GPS points and area, by village and survey number.",
+    Form: SurveyMapForm,
   },
   {
-    id: 'adangal',
-    icon: 'ti ti-map-2',
-    navLabel: 'Adangal (Pahani)',
-    tag: 'Revenue dept',
-    heading: 'Adangal Extract (Pahani)',
-    description: 'Land ownership, cultivation, and usage record for agricultural land by village and survey number.',
-    Form: AdangalForm,
+    id: 'market-value',
+    icon: 'ti ti-currency-rupee',
+    navLabel: 'Market Value',
+    tag: 'Registration dept',
+    heading: 'Land Market Value',
+    description: 'Official government land rates (₹ per sq. yard) by village, or by locality in Hyderabad, as used for stamp duty and registration.',
+    Form: MarketValueForm,
+  },
+  {
+    id: 'prohibited-lands',
+    icon: 'ti ti-ban',
+    navLabel: 'Prohibited Lands',
+    tag: 'Registration dept',
+    heading: 'Prohibited Lands (Section 22A)',
+    description: 'Official lists of properties barred from registration under Section 22-A, for agricultural and non-agricultural land by village, with the government orders behind each entry.',
+    Form: ProhibitedLandsForm,
   },
   {
     id: 'market-value',
@@ -2083,10 +2106,55 @@ function Skyline() {
   )
 }
 
+// Mobile explore-card grid — shown below the primary tool on phones.
+// Each card jumps to that tool's section (which is still in the DOM,
+// just not visible until the user scrolls or taps a card).
+function ExploreCards({ types, activeId, onPick }) {
+  const others = types.filter((d) => d.id !== activeId)
+  return (
+    <div className="explore-section">
+      <p className="explore-label">Explore more</p>
+      <div className="explore-grid">
+        {others.map((d) => (
+          <button key={d.id} className="explore-card" type="button" onClick={() => onPick(d.id)}>
+            <span className="explore-card-icon"><i className={d.icon} /></span>
+            <span className="explore-card-name">{d.navLabel}</span>
+            <span className="explore-card-desc">{d.description}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [activeId, setActiveId] = useState(DOCUMENT_TYPES[0].id)
+  // JS viewport check — same pattern as Karnataka TruEstate mweb.
+  // Drives both layout switching AND what the mobile nav renders.
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 600px)').matches)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
+    const mq = window.matchMedia('(max-width: 600px)')
+    const handler = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  // Close the mobile menu when the user picks a tool
+  function pickTool(id) {
+    setActiveId(id)
+    setMenuOpen(false)
+    if (!isMobile) {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  // Desktop: track which section is in view to highlight the active tab.
+  useEffect(() => {
+    if (isMobile) return
     const sections = DOCUMENT_TYPES.map((d) => document.getElementById(d.id)).filter(Boolean)
     const lastId = DOCUMENT_TYPES[DOCUMENT_TYPES.length - 1].id
     // The last section can't scroll up into the observer's band, so at the very
@@ -2109,89 +2177,122 @@ export default function App() {
       observer.disconnect()
       window.removeEventListener('scroll', onScroll)
     }
-  }, [])
+  }, [isMobile])
 
-  // On phones the tab bar scrolls sideways; slide it so the active tab stays in view.
+  // Desktop: keep the active tab scrolled into view in the nav strip.
   useEffect(() => {
-    const nav = document.querySelector('.navbar')
+    if (isMobile) return
+    const nav = document.querySelector('.nav-tabs')
     const tab = nav?.querySelector('.nav-tab.active')
     if (!nav || !tab || nav.scrollWidth <= nav.clientWidth) return
     nav.scrollTo({ left: tab.offsetLeft - (nav.clientWidth - tab.offsetWidth) / 2, behavior: 'smooth' })
-  }, [activeId])
+  }, [activeId, isMobile])
 
-  function scrollToSection(id) {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  const activeDoc = DOCUMENT_TYPES.find((d) => d.id === activeId) || DOCUMENT_TYPES[0]
 
   return (
     <div className="app">
+      {/* ── Navbar ── */}
       <nav className="navbar">
         <div className="brand"><i className="ti ti-building-skyscraper" /> TruDocs Telangana</div>
-        <div className="nav-tabs">
+
+        {isMobile ? (
+          /* Mobile: hamburger button */
+          <button className="hamburger" type="button" aria-label="Open menu" onClick={() => setMenuOpen((o) => !o)}>
+            <i className={menuOpen ? 'ti ti-x' : 'ti ti-menu-2'} />
+          </button>
+        ) : (
+          /* Desktop: scrollable tab strip */
+          <div className="nav-tabs">
+            {DOCUMENT_TYPES.map((d) => (
+              <button
+                key={d.id}
+                className={`nav-tab${d.id === activeId ? ' active' : ''}`}
+                onClick={() => pickTool(d.id)}
+              >
+                <i className={d.icon} /> {d.navLabel}
+              </button>
+            ))}
+          </div>
+        )}
+      </nav>
+
+      {/* Mobile slide-down menu */}
+      {isMobile && menuOpen && (
+        <div className="mobile-menu">
           {DOCUMENT_TYPES.map((d) => (
-            <button
-              key={d.id}
-              className={`nav-tab${d.id === activeId ? ' active' : ''}`}
-              onClick={() => scrollToSection(d.id)}
-            >
-              <i className={d.icon} /> {d.navLabel}
+            <button key={d.id} className={`mobile-menu-item${d.id === activeId ? ' active' : ''}`} type="button" onClick={() => pickTool(d.id)}>
+              <i className={d.icon} />
+              <span>{d.navLabel}</span>
+              <span className="mobile-menu-tag">{d.tag}</span>
             </button>
           ))}
         </div>
-      </nav>
+      )}
 
-      <div className="hero">
-        <div className="hero-badge left">
-          <div className="icon"><i className="ti ti-shield-check" /></div>
-          <div>
-            <div className="title">Govt. Verified</div>
-            <div className="subtitle">Live government data</div>
+      {/* ── Hero (desktop only — on mobile jump straight to the tool) ── */}
+      {!isMobile && (
+        <div className="hero">
+          <div className="hero-tags">
+            <span className="hero-tag"><i className="ti ti-shield-check" /> Live government data</span>
+            <span className="hero-tag"><i className="ti ti-map-pin" /> 33 Districts covered</span>
+            <span className="hero-tag"><i className="ti ti-building" /> CCLA · GHMC · IGRS</span>
+            <span className="hero-tag"><i className="ti ti-bolt" /> Instant results</span>
           </div>
+
+          <h1>Telangana's own <em>property records</em> engine.</h1>
+          <p className="tagline">
+            Search property tax and tax receipts, building permissions, mutation, land records, market values, prohibited lands, survey and village maps, lake FTL maps, and RERA certificates — verified live from GHMC, CDMA, TG-bPASS, CCLA, IGRS, TGRAC, HMDA, and TG-RERA, Telangana.
+          </p>
+
+          <div className="stat-bar">
+            <div className="stat">
+              <span className="num">{DOCUMENT_TYPES.length}</span>
+              <span className="label">Live Document Types</span>
+            </div>
+            <div className="stat">
+              <span className="num">33</span>
+              <span className="label">Districts Covered</span>
+            </div>
+            <div className="stat">
+              <span className="num">12,777</span>
+              <span className="label">Villages Statewide</span>
+            </div>
+          </div>
+
+          <Skyline />
         </div>
-        <div className="hero-badge right">
-          <div className="icon"><i className="ti ti-map-pin" /></div>
-          <div>
-            <div className="title">33 Districts</div>
-            <div className="subtitle">Statewide coverage</div>
-          </div>
-        </div>
+      )}
 
-        <h1>Telangana's own <em>property records</em> engine.</h1>
-        <p className="tagline">
-          Search property tax and tax receipts, building permissions, mutation, land records, market values, prohibited lands, survey and village maps, lake FTL maps, and RERA certificates — verified live from GHMC, CDMA, TG-bPASS, CCLA, IGRS, TGRAC, HMDA, and TG-RERA, Telangana.
-        </p>
-
-        <div className="stat-bar">
-          <div className="stat">
-            <span className="num">{DOCUMENT_TYPES.length}</span>
-            <span className="label">Live Document Types</span>
-          </div>
-          <div className="stat">
-            <span className="num">33</span>
-            <span className="label">Districts Covered</span>
-          </div>
-          <div className="stat">
-            <span className="num">12,777</span>
-            <span className="label">Villages Statewide</span>
-          </div>
-        </div>
-
-        <Skyline />
-      </div>
-
-      {DOCUMENT_TYPES.map((d, i) => (
-        <div className="search-section" id={d.id} key={d.id}>
-          <div className="search-intro">
-            <span className="index">{String(i + 1).padStart(2, '0')}</span>
-            <span className="pill">{d.tag}</span>
-            <h2>{d.heading}</h2>
-            <p>{d.description}</p>
+      {/* ── Mobile layout: one primary tool full-width + explore grid ── */}
+      {isMobile ? (
+        <div className="mobile-primary">
+          <div className="mobile-tool-header">
+            <span className="pill">{activeDoc.tag}</span>
+            <h2>{activeDoc.heading}</h2>
+            <p>{activeDoc.description}</p>
           </div>
           <div className="form-card">
-            <d.Form />
+            <activeDoc.Form />
           </div>
+          <ExploreCards types={DOCUMENT_TYPES} activeId={activeId} onPick={pickTool} />
         </div>
-      ))}
+      ) : (
+        /* ── Desktop layout: all tools in scrolling sections ── */
+        DOCUMENT_TYPES.map((d, i) => (
+          <div className="search-section" id={d.id} key={d.id}>
+            <div className="search-intro">
+              <span className="index">{String(i + 1).padStart(2, '0')}</span>
+              <span className="pill">{d.tag}</span>
+              <h2>{d.heading}</h2>
+              <p>{d.description}</p>
+            </div>
+            <div className="form-card">
+              <d.Form />
+            </div>
+          </div>
+        ))
+      )}
     </div>
   )
 }

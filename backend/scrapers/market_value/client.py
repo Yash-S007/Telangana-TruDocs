@@ -36,8 +36,8 @@ HYDERABAD = "16_1"
 # A rates table with no rows: the user picked a real place, so don't say "check your details".
 NO_RATES = "The department hasn't published market value rates for this place."
 
-# At most 60 requests a minute to this portal, shared with prohibited lands (same portal).
-_throttle = RateLimiter(min_interval_seconds=1.0)
+# At most two portal requests a second (the GHMC and Pattadar clients use the same gap).
+_throttle = RateLimiter(min_interval_seconds=0.5)
 
 _CACHE_SECONDS = 6 * 3600
 # Identical searches that arrive together wait for one portal fetch instead of each

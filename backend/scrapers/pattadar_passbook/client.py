@@ -79,6 +79,46 @@ def _single_flight(key: tuple, work):
         call.event.set()
 
 
+# Single-flight: identical searches arriving together wait for one portal flow instead
+# of each solving its own captcha and hammering the portal. Nothing is retained after
+# the request finishes, so no personal result is cached at rest — only in-flight callers
+# share the one result.
+_inflight_lock = threading.Lock()
+_inflight: dict = {}
+
+
+class _Call:
+    __slots__ = ("event", "result", "exc")
+
+    def __init__(self):
+        self.event = threading.Event()
+        self.result = None
+        self.exc = None
+
+
+def _single_flight(key: tuple, work):
+    with _inflight_lock:
+        call = _inflight.get(key)
+        leader = call is None
+        if leader:
+            call = _inflight[key] = _Call()
+    if not leader:
+        call.event.wait()
+        if call.exc is not None:
+            raise call.exc
+        return call.result
+    try:
+        call.result = work()
+        return call.result
+    except BaseException as exc:
+        call.exc = exc
+        raise
+    finally:
+        with _inflight_lock:
+            _inflight.pop(key, None)
+        call.event.set()
+
+
 _AES_KEY = base64.b64decode("u/Gu5posvwDsXUnV5Zaq4g==")
 _AES_IV = base64.b64decode("5D9r9ZVzEYYgha93/aUK2w==")
 

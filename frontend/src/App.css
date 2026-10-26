@@ -2,41 +2,39 @@
   --font-display: "Instrument Serif", Georgia, serif;
   --font-body: "Inter Tight", "Segoe UI", system-ui, sans-serif;
 
-  --bg: #f6f1e6;
-  --nav-bg: #163d2e;
-  --nav-text: #cfe0d5;
+  --bg: #f5f0e8;
+  --nav-bg: #122e22;
+  --nav-border: rgba(207, 159, 63, 0.18);
+  --nav-text: #b8d0c4;
   --nav-text-active: #ffffff;
   --surface: #ffffff;
   --text: #1a1d1b;
   --text-muted: #6b6f6c;
-  --border: #e6e0d0;
+  --border: #e4ddd0;
   --primary: #1c6e4a;
   --primary-hover: #155a3b;
-  --primary-tint: #eaf5ee;
+  --primary-tint: #e8f5ee;
   --accent: #cf9f3f;
-  --accent-tint: #faf1dd;
+  --accent-dark: #b8882e;
+  --accent-tint: #faf0d8;
   --error-bg: #fdecec;
   --error-text: #b3261e;
-  --shadow-sm: 0 1px 2px rgba(20, 20, 16, 0.05);
-  --shadow-md: 0 12px 32px rgba(20, 20, 16, 0.1);
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
+  --shadow-xs: 0 1px 3px rgba(10, 20, 14, 0.07);
+  --shadow-sm: 0 2px 8px rgba(10, 20, 14, 0.08);
+  --shadow-md: 0 8px 24px rgba(10, 20, 14, 0.10), 0 1px 3px rgba(10, 20, 14, 0.06);
+  --shadow-lg: 0 20px 48px rgba(10, 20, 14, 0.13), 0 4px 12px rgba(10, 20, 14, 0.07);
+  --radius-xl: 24px;
+  --radius-lg: 18px;
+  --radius-md: 13px;
+  --radius-sm: 9px;
 }
 
-/* Intentionally no @media (prefers-color-scheme: dark) override — this
-   product's design (cream background, gold accents) is a fixed light theme,
-   like Karnataka TruDocs' live site, not something that should flip to a
-   dark palette just because the visitor's OS is in dark mode. */
+/* Fixed light theme — no dark-mode flip. The cream + forest green palette
+   is intentional product identity, not a system default. */
 
 * { box-sizing: border-box; }
 
-html {
-  /* Forces browser-native form control styling (selects, scrollbars) to
-     stay light even when the OS is in dark mode — otherwise some browsers
-     dark-ify those regardless of our own CSS variables above. */
-  color-scheme: light;
-}
+html { color-scheme: light; }
 
 body {
   margin: 0;
@@ -45,20 +43,22 @@ body {
   font-family: var(--font-body);
 }
 
-.app { min-height: 100vh; }
+.app { min-height: 100dvh; }
 
-/* ---------- Tab nav ---------- */
+/* ─── Navbar ─────────────────────────────────────────────────────────────── */
 .navbar {
   background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 0 28px;
-  height: 60px;
-  overflow-x: auto;
+  gap: 0;
+  padding: 0;
+  height: 56px;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 100;
+  /* Prevent iOS overscroll bounce from showing nav below the fold */
+  -webkit-backface-visibility: hidden;
 }
 
 .brand {
@@ -66,17 +66,32 @@ body {
   align-items: center;
   gap: 8px;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--accent);
   white-space: nowrap;
+  padding: 0 20px;
+  height: 100%;
+  border-right: 1px solid var(--nav-border);
+  flex-shrink: 0;
+  letter-spacing: -0.2px;
 }
+
+.brand i { font-size: 18px; }
 
 .nav-tabs {
   display: flex;
   align-items: center;
   height: 100%;
-  gap: 4px;
+  gap: 0;
+  overflow-x: auto;
+  /* Hide scrollbar visually on all browsers */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1;
+  padding: 0 8px;
 }
+
+.nav-tabs::-webkit-scrollbar { display: none; }
 
 .nav-tab {
   display: flex;
@@ -89,11 +104,15 @@ body {
   border-bottom: 2px solid transparent;
   color: var(--nav-text);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s;
+  position: relative;
 }
+
+.nav-tab i { font-size: 15px; opacity: 0.8; }
 
 .nav-tab.active {
   color: var(--nav-text-active);
@@ -101,62 +120,53 @@ body {
   border-bottom-color: var(--accent);
 }
 
+.nav-tab.active i { opacity: 1; }
+
 .nav-tab:hover:not(.active) { color: var(--nav-text-active); }
 
-/* ---------- Hero ---------- */
+/* ─── Hero ───────────────────────────────────────────────────────────────── */
 .hero {
   position: relative;
   text-align: center;
-  padding: 64px 20px 0;
-  max-width: 760px;
+  padding: 72px 20px 0;
+  max-width: 800px;
   margin: 0 auto;
   overflow: visible;
 }
 
-.hero-badge {
-  position: absolute;
-  top: 90px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  box-shadow: var(--shadow-md);
-  text-align: left;
-  white-space: nowrap;
-}
-
-.hero-badge.left { left: -180px; }
-.hero-badge.right { right: -180px; }
-
-.hero-badge .icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--primary-tint);
-  color: var(--primary);
-  display: flex;
-  align-items: center;
+/* Replaces the absolute-positioned badges (hidden below 1180px) with
+   an always-visible row of proof points just above the headline. */
+.hero-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
   justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
+  gap: 8px;
+  margin-bottom: 24px;
 }
 
-.hero-badge .title { font-weight: 700; font-size: 14px; }
-.hero-badge .subtitle { font-size: 12px; color: var(--text-muted); }
-
-@media (max-width: 1180px) {
-  .hero-badge { display: none; }
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  box-shadow: var(--shadow-xs);
 }
+
+.hero-tag i { color: var(--primary); font-size: 13px; }
 
 .hero h1 {
   font-family: var(--font-body);
   font-weight: 800;
-  font-size: clamp(32px, 5.5vw, 52px);
-  line-height: 1.12;
+  font-size: clamp(28px, 5.5vw, 52px);
+  line-height: 1.1;
   margin: 0 0 16px;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.8px;
   color: var(--text);
 }
 
@@ -166,28 +176,29 @@ body {
   font-weight: 400;
   color: var(--primary);
   border-bottom: 3px solid var(--accent);
-  padding-bottom: 2px;
+  padding-bottom: 1px;
 }
 
 .hero p.tagline {
   color: var(--text-muted);
   font-size: 16px;
-  margin: 0 auto 28px;
-  max-width: 520px;
-  line-height: 1.5;
+  margin: 0 auto 32px;
+  max-width: 540px;
+  line-height: 1.6;
 }
 
 .stat-bar {
   display: inline-flex;
   background: var(--surface);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
-  padding: 20px 0;
+  border: 1px solid var(--border);
+  padding: 16px 0;
   margin: 0 auto;
 }
 
 .stat {
-  padding: 0 32px;
+  padding: 0 28px;
   border-right: 1px solid var(--border);
   text-align: center;
 }
@@ -197,58 +208,56 @@ body {
 .stat .num {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 28px;
-  color: var(--text);
+  font-size: 26px;
+  color: var(--accent-dark);
   display: block;
+  line-height: 1.1;
 }
 
 .stat .label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 4px;
+  letter-spacing: 0.6px;
+  margin-top: 3px;
+  font-weight: 600;
 }
 
 .skyline {
   display: block;
   width: 100%;
-  height: 90px;
-  margin-top: 48px;
+  height: 80px;
+  margin-top: 40px;
   color: var(--border);
 }
 
-/* ---------- Search section ---------- */
+/* ─── Search section ─────────────────────────────────────────────────────── */
 .search-section {
-  max-width: 1080px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 56px 20px 80px;
+  padding: 60px 24px 84px;
   display: grid;
-  /* minmax(0, Nfr), not just Nfr — without the explicit 0 floor, a grid
-     track won't shrink below its content's min-content size. A <select>
-     holding long unbroken Telugu option text (e.g. district/village names)
-     was forcing this column wider than its fr share, pushing the form card
-     off the right edge of the viewport. */
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  gap: 48px;
+  /* minmax(0, Nfr) prevents long Telugu option text from blowing out the column */
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 52px;
   align-items: start;
-  scroll-margin-top: 76px; /* keeps the section clear of the sticky navbar */
+  scroll-margin-top: 72px;
   border-top: 1px solid var(--border);
 }
 
 .search-section:first-of-type { border-top: none; }
 
-@media (max-width: 800px) {
-  .search-section { grid-template-columns: 1fr; }
-}
+/* ─── Section intro ──────────────────────────────────────────────────────── */
+.search-intro { padding-top: 8px; }
 
 .search-intro .index {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 40px;
+  font-size: 44px;
   color: var(--border);
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  line-height: 1;
 }
 
 .search-intro .pill {
@@ -256,85 +265,95 @@ body {
   align-items: center;
   gap: 6px;
   background: var(--accent-tint);
-  color: var(--accent);
-  font-size: 11px;
+  color: var(--accent-dark);
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 5px 12px;
+  letter-spacing: 0.7px;
+  padding: 4px 12px;
   border-radius: 999px;
   margin-bottom: 16px;
+  border: 1px solid rgba(207, 159, 63, 0.2);
 }
 
 .search-intro .pill::before {
   content: "";
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--accent);
 }
 
 .search-intro h2 {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 800;
   margin: 0 0 12px;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.5px;
   color: var(--text);
+  line-height: 1.2;
 }
 
 .search-intro p {
   color: var(--text-muted);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.6;
   margin: 0;
 }
 
+/* ─── Form card ──────────────────────────────────────────────────────────── */
 .form-card {
   background: var(--surface);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
   border-top: 3px solid var(--accent);
-  box-shadow: var(--shadow-md);
   padding: 28px;
-  min-width: 0; /* belt-and-suspenders alongside the grid-track fix above */
+  min-width: 0;
 }
 
+/* ─── Form fields ────────────────────────────────────────────────────────── */
 .field {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .field label {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.6px;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 7px;
 }
 
 .field label .req { color: var(--error-text); margin-left: 2px; }
 
+.field-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 8px;
+  font-style: italic;
+}
+
 input, select {
-  padding: 12px 14px;
+  padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 14px;
   line-height: 1.25; /* "normal" differs between selects and inputs, so their heights drifted 2px apart */
   width: 100%;
-  min-width: 0; /* a <select> can otherwise refuse to shrink below its
-    widest OPTION's intrinsic content size, regardless of width:100% —
-    this bit the long bilingual Telugu district/village names specifically */
+  min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  background: var(--bg);
+  background: var(--surface);
   color: var(--text);
   font-family: inherit;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-/* The closed <select> box truncates long selected text with an ellipsis
-   instead of forcing the box (and its grid column) wider. The open
-   dropdown's option list is a native browser overlay and is unaffected —
-   it still shows full option text. */
 select {
   white-space: nowrap;
   overflow: hidden;
@@ -351,12 +370,16 @@ select {
 /* Chrome's own value; Safari only dimmed disabled dropdowns through the native look. */
 select:disabled { opacity: 0.7; }
 
+select:disabled { opacity: 0.65; }
+
 input:focus, select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-tint);
+  background: var(--surface);
 }
 
+/* ─── Submit button ──────────────────────────────────────────────────────── */
 button[type="submit"] {
   display: flex;
   align-items: center;
@@ -365,26 +388,31 @@ button[type="submit"] {
   padding: 13px 18px;
   border: none;
   border-radius: var(--radius-sm);
-  background: var(--primary);
-  color: white;
+  background: var(--accent);
+  color: var(--primary);
   font-weight: 700;
   cursor: pointer;
   font-size: 14px;
   margin-top: 4px;
   font-family: inherit;
   width: 100%;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.08s;
+  letter-spacing: 0.1px;
 }
 
-button[type="submit"]:hover:not(:disabled) { background: var(--primary-hover); }
-button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+button[type="submit"]:hover:not(:disabled) {
+  background: var(--accent-dark);
+  transform: translateY(-1px);
+}
 
-/* Spinner inside submit button */
+button[type="submit"]:active:not(:disabled) { transform: none; }
+button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; }
+
 .btn-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255,255,255,0.4);
-  border-top-color: white;
+  border: 2px solid rgba(28,110,74,0.35);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.65s linear infinite;
   flex-shrink: 0;
@@ -392,7 +420,7 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ---------- Result ---------- */
+/* ─── Result box ─────────────────────────────────────────────────────────── */
 .result {
   margin-top: 18px;
   border-radius: var(--radius-md);
@@ -406,27 +434,32 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   color: var(--error-text);
   padding: 14px 16px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  border-color: #f5c2c7;
+  border-color: rgba(179, 38, 30, 0.15);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .result.success { background: var(--surface); }
 
 .result-status {
   margin: 0;
-  padding: 12px 16px;
+  padding: 11px 16px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
   display: flex;
   align-items: center;
   gap: 8px;
   border-bottom: 1px solid var(--border);
 }
-.result-status.found { background: var(--primary-tint); color: var(--primary); }
-.result-status.not-found { background: var(--bg); color: var(--text-muted); font-weight: 500; }
 
-.result-icon { font-size: 15px; }
+.result-status.found { background: var(--primary-tint); color: var(--primary); }
+.result-status.not-found { background: var(--bg); color: var(--text-muted); font-weight: 500; text-transform: none; }
+
+.result-icon { font-size: 14px; }
 
 .field-list {
   margin: 0;
@@ -438,7 +471,7 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .field-list dt {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -451,8 +484,8 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .field-list dd {
   margin: 0;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 13px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   word-break: break-word;
@@ -461,6 +494,7 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 .field-row:last-child dt,
 .field-row:last-child dd { border-bottom: none; }
 
+/* ─── Tables from portal HTML ────────────────────────────────────────────── */
 .portal-table-wrapper {
   background: #ffffff;
   color: #111111;
@@ -478,16 +512,20 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 .portal-table-wrapper td,
 .portal-table-wrapper th {
   border: 1px solid #ddd;
-  padding: 6px 10px;
+  padding: 7px 10px;
   text-align: left;
 }
 
 .portal-table-wrapper th {
-  background: #f5f5f5;
+  background: #f5f5f2;
   font-weight: 600;
+  font-size: 12px;
 }
 
-/* ---------- Village typeahead ---------- */
+.portal-table-wrapper a { color: var(--primary); font-weight: 600; text-decoration: none; }
+.portal-table-wrapper a:hover { text-decoration: underline; }
+
+/* ─── Village typeahead ──────────────────────────────────────────────────── */
 .village-search { position: relative; }
 
 .village-input-wrap { position: relative; display: flex; align-items: center; }
@@ -506,8 +544,8 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 .village-spinner {
   position: absolute;
   right: 12px;
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border: 2px solid var(--border);
   border-top-color: var(--primary);
   border-radius: 50%;
@@ -527,7 +565,9 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   align-items: center;
   font-size: 14px;
   border-radius: 4px;
+  width: auto;
 }
+
 .village-clear:hover { color: var(--text); background: var(--border); }
 
 .village-dropdown {
@@ -537,17 +577,17 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   right: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   max-height: 240px;
   overflow-y: auto;
-  z-index: 100;
+  z-index: 200;
 }
 
 .village-option {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   width: 100%;
   padding: 10px 14px;
   background: none;
@@ -572,7 +612,7 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .v-name i { color: var(--primary); font-size: 13px; }
 
-.v-meta { font-size: 12px; color: var(--text-muted); padding-left: 19px; }
+.v-meta { font-size: 11px; color: var(--text-muted); padding-left: 19px; }
 
 .village-no-results {
   padding: 14px 16px;
@@ -581,7 +621,7 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   text-align: center;
 }
 
-/* ---------- Select with loading spinner ---------- */
+/* ─── Select with loading spinner ────────────────────────────────────────── */
 .select-wrap { position: relative; }
 .select-wrap select { width: 100%; }
 
@@ -599,14 +639,353 @@ button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
   pointer-events: none;
 }
 
-/* ---------- Field hint ---------- */
-.field-hint {
-  font-size: 10px;
+/* ─── Inline spinner (for text paragraphs) ───────────────────────────────── */
+.inline-spinner {
+  display: inline-block;
+  vertical-align: -2px;
+  width: 13px;
+  height: 13px;
+  margin-right: 8px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+}
+
+/* ─── Survey Map ─────────────────────────────────────────────────────────── */
+.survey-map {
+  margin: 0;
+  background: #242926;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.survey-map svg { display: block; width: 100%; height: auto; }
+.survey-map .nb path { fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.2; }
+.survey-map .own-halo { fill: none; stroke: rgba(0, 0, 0, 0.6); stroke-width: 8; stroke-linejoin: round; }
+.survey-map .own { fill: rgba(207, 159, 63, 0.2); stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; }
+.survey-map text {
+  fill: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.8);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.survey-map .own-label { font-size: 20px; font-weight: 800; }
+.survey-map .corner circle { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.survey-map .corner text { text-anchor: start; }
+.survey-map figcaption { font-size: 10px; color: #c0c0b8; padding: 5px 10px; }
+
+.corner-scroll { max-height: 260px; overflow-y: auto; border-top: 1px solid var(--border); }
+.corner-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.corner-table th {
+  position: sticky;
+  top: 0;
   color: var(--text-muted);
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 7px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.corner-table td { padding: 7px 16px; border-bottom: 1px solid var(--border); }
+.corner-table td:first-child { font-weight: 700; color: var(--primary); }
+
+.maps-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 16px 0;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.maps-link:hover { background: var(--primary-hover); }
+.survey-note { margin: 10px 16px 14px; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+/* ─── Prohibited Lands: 22A survey list ──────────────────────────────────── */
+.survey-scroll { max-height: 480px; overflow: auto; }
+.survey-scroll thead th { position: sticky; top: 0; z-index: 1; }
+
+/* ─── Mobile nav: hamburger + slide-down menu ────────────────────────────── */
+.hamburger {
+  margin-left: auto;
+  margin-right: 12px;
+  background: none;
+  border: none;
+  color: var(--nav-text-active);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s;
+  width: auto;
+}
+
+.hamburger:hover { background: rgba(255,255,255,0.08); }
+
+.mobile-menu {
+  position: fixed;
+  top: 52px; /* navbar height on mobile */
+  left: 0;
+  right: 0;
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+  z-index: 99;
+  box-shadow: var(--shadow-lg);
+  /* Scrollable in case of very small phones with many tools */
+  max-height: calc(100dvh - 52px);
+  overflow-y: auto;
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--nav-border);
+  color: var(--nav-text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.mobile-menu-item:last-child { border-bottom: none; }
+.mobile-menu-item i { font-size: 18px; flex-shrink: 0; }
+.mobile-menu-item span:nth-child(2) { flex: 1; }
+
+.mobile-menu-item.active {
+  color: var(--nav-text-active);
+  background: rgba(207, 159, 63, 0.1);
+}
+
+.mobile-menu-item.active i { color: var(--accent); }
+
+.mobile-menu-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.06);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* ─── Mobile primary tool layout ────────────────────────────────────────── */
+.mobile-primary {
+  padding: 24px 16px 48px;
+  max-width: 540px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.mobile-tool-header {
+  margin-bottom: 16px;
+}
+
+.mobile-tool-header h2 {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 8px 0 8px;
+  letter-spacing: -0.4px;
+  color: var(--text);
+}
+
+.mobile-tool-header p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ─── Explore more cards ─────────────────────────────────────────────────── */
+.explore-section {
+  margin-top: 36px;
+}
+
+.explore-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin: 0 0 14px;
+}
+
+.explore-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.explore-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 16px 14px 14px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: box-shadow 0.15s, transform 0.1s;
+  width: 100%;
+}
+
+.explore-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.explore-card-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--primary-tint);
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.explore-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.explore-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Responsive: tablets (≤ 860px) ─────────────────────────────────────── */
+@media (max-width: 860px) {
+  .search-section {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 48px 20px 64px;
+  }
+
+  .hero { padding-top: 52px; }
+}
+
+/* ─── Responsive: phones (≤ 600px) ──────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Inputs: 16px prevents iOS auto-zoom */
+  input, select { font-size: 16px; }
+
+  /* Nav: tighter brand, smaller tabs */
+  .navbar { height: 52px; }
+  .brand { font-size: 14px; padding: 0 14px; }
+  .nav-tab { font-size: 12px; padding: 0 11px; }
+
+  /* Hero */
+  .hero { padding-top: 36px; }
+  .hero h1 { letter-spacing: -0.5px; }
+  .hero p.tagline { font-size: 14px; }
+
+  /* Hero tags: wrap tightly on phones */
+  .hero-tag { font-size: 11px; padding: 5px 10px; }
+
+  /* Stat bar: reduce padding so all 3 fit */
+  .stat { padding: 0 14px; }
+  .stat .num { font-size: 22px; }
+
+  /* Form card: reduced padding */
+  .form-card { padding: 20px 16px; border-radius: var(--radius-lg); }
+
+  /* Section numbers smaller */
+  .search-intro .index { font-size: 32px; }
+  .search-intro h2 { font-size: 22px; }
+
+  /* Result field list: single column so long labels don't force sideways scroll */
+  .field-list { grid-template-columns: 1fr; }
+  .field-list dt { white-space: normal; border-right: none; padding-bottom: 2px; }
+  .field-list dd { padding-top: 2px; }
+
+  /* Survey map: larger text on a small screen */
+  .survey-map text { font-size: 22px; }
+  .survey-map .own-label { font-size: 32px; }
+  .corner-table th, .corner-table td { padding-left: 10px; padding-right: 10px; }
+
+  /* 22A survey list: cap height to viewport so it doesn't take the full page */
+  .survey-scroll { max-height: 65vh; }
+
+  /* Tables: each row becomes a labelled card */
+  .stack-on-mobile thead { display: none; }
+  .stack-on-mobile,
+  .stack-on-mobile tbody,
+  .stack-on-mobile tr,
+  .stack-on-mobile td { display: block; width: 100%; }
+  .stack-on-mobile tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 10px;
+    padding: 2px 12px;
+    background: #fff;
+  }
+  .portal-table-wrapper .stack-on-mobile td {
+    border: none;
+    padding: 7px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    text-align: right;
+  }
+  .portal-table-wrapper .stack-on-mobile td + td { border-top: 1px solid #eee; }
+  .stack-on-mobile td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* Section padding */
+  .search-section { padding: 36px 16px 56px; scroll-margin-top: 64px; }
 }
 
 /* Long 22A survey lists scroll inside their box instead of stretching the page. */

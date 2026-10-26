@@ -16,6 +16,13 @@ def _http_error(exc: PortalError) -> HTTPException:
     # CAPTCHA_FAILED is our OCR giving up, not the user's fault: 503 "try again".
     return HTTPException(status_code=_STATUS.get(exc.user_message, 502), detail=exc.user_message)
 
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, CAPTCHA_FAILED: 503}
+
+
+def _http_error(exc: PortalError) -> HTTPException:
+    # CAPTCHA_FAILED is our OCR giving up, not the user's fault: 503 "try again".
+    return HTTPException(status_code=_STATUS.get(exc.user_message, 502), detail=exc.user_message)
+
 
 @router.get("/villages/search")
 def villages_search(q: str = ""):
@@ -69,7 +76,6 @@ class PassbookRequest(BaseModel):
 
 
 @router.post("/search-by-passbook")
-@_threads.route
 def search_by_passbook(req: PassbookRequest):
     try:
         return pattadar_client.fetch_pattadar_by_passbook(

@@ -29,7 +29,7 @@ from html import unescape
 import httpx
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
-from backend.scrapers.market_value.client import _throttle as market_value_throttle
+from backend.core.rate_limit import RateLimiter
 
 BASE_URL = "https://registration.telangana.gov.in"
 LANDING_PATH = "/openProhibitedProperties.htm"
@@ -45,9 +45,8 @@ NOT_PUBLISHED = "This list hasn't been published online yet. The department says
 # while, then working again), so the honest message is "try later", not "no record".
 DOC_UNAVAILABLE = "The department's website couldn't return this document right now. Please try again later."
 
-# Same portal as market value (registration.telangana.gov.in), so both tools share one
-# limit of 60 requests a minute.
-_throttle = market_value_throttle
+# At most two portal requests a second (the GHMC and Pattadar clients use the same gap).
+_throttle = RateLimiter(min_interval_seconds=0.5)
 
 _CACHE_SECONDS = 6 * 3600
 # Identical searches that arrive together wait for one portal fetch instead of each
