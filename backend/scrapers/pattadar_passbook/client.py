@@ -27,6 +27,7 @@ import httpx
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 import base64
+import threading
 
 from backend.core.captcha import solve as solve_captcha
 from backend.core.errors import BAD_INPUT, CAPTCHA_FAILED, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
@@ -37,6 +38,46 @@ LANDING_PATH = "/knowLandStatus"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 _throttle = RateLimiter(min_interval_seconds=0.5)
+
+# Single-flight: identical searches arriving together wait for one portal flow instead
+# of each solving its own captcha and hammering the portal. Nothing is retained after
+# the request finishes, so no personal result is cached at rest — only in-flight callers
+# share the one result.
+_inflight_lock = threading.Lock()
+_inflight: dict = {}
+
+
+class _Call:
+    __slots__ = ("event", "result", "exc")
+
+    def __init__(self):
+        self.event = threading.Event()
+        self.result = None
+        self.exc = None
+
+
+def _single_flight(key: tuple, work):
+    with _inflight_lock:
+        call = _inflight.get(key)
+        leader = call is None
+        if leader:
+            call = _inflight[key] = _Call()
+    if not leader:
+        call.event.wait()
+        if call.exc is not None:
+            raise call.exc
+        return call.result
+    try:
+        call.result = work()
+        return call.result
+    except BaseException as exc:
+        call.exc = exc
+        raise
+    finally:
+        with _inflight_lock:
+            _inflight.pop(key, None)
+        call.event.set()
+
 
 _AES_KEY = base64.b64decode("u/Gu5posvwDsXUnV5Zaq4g==")
 _AES_IV = base64.b64decode("5D9r9ZVzEYYgha93/aUK2w==")
@@ -57,16 +98,39 @@ def _client(timeout: float = 45.0) -> httpx.Client:
     )
 
 
-def _get(client: httpx.Client, path: str) -> httpx.Response:
+def _get(client: httpx.Client, path: str, params: dict | None = None) -> httpx.Response:
     try:
         _throttle.wait()
-        resp = client.get(path)
+        resp = client.get(path, params=params)
         resp.raise_for_status()
         return resp
     except httpx.TimeoutException as exc:
         raise PortalError(PORTAL_TIMEOUT, str(exc)) from exc
     except httpx.HTTPError as exc:
         raise PortalError(PORTAL_DOWN, str(exc)) from exc
+
+
+# Checked before anything reaches the portal. Values also travel as encoded params:
+# pasting them into the URL let "507004&flag=x" rewrite the portal request.
+_ID_RE = re.compile(r"[0-9]{1,10}")  # not \d: that also matches Telugu and other non-ASCII digits
+# Survey numbers mix digits, "/" and Telugu letters plus vowel signs (e.g. "1/2అ",
+# which a \w whitelist would reject), so block only characters that could change a
+# request's meaning.
+_SURVEY_BAD_RE = re.compile(r"[&#?=%<>\"'\\\x00-\x1f]")
+
+
+def _check_id(value: str, what: str) -> str:
+    value = (value or "").strip()
+    if not _ID_RE.fullmatch(value):
+        raise PortalError(BAD_INPUT, f"invalid {what}")
+    return value
+
+
+def _check_survey(value: str) -> str:
+    value = (value or "").strip()
+    if not value or len(value) > 40 or _SURVEY_BAD_RE.search(value):
+        raise PortalError(BAD_INPUT, "invalid survey number")
+    return value
 
 
 _OPTION_RE = re.compile(r'<option[^>]*value=(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))[^>]*>([^<]*)')
@@ -102,134 +166,199 @@ def fetch_districts() -> list:
 
 @lru_cache(maxsize=64)
 def fetch_mandals(district_id: str) -> list:
+    district_id = _check_id(district_id, "district")
     with _client() as client:
         _get(client, LANDING_PATH)
-        resp = _get(client, f"/getMandalFromDivisionCitizenPortal?district={district_id}")
+        resp = _get(client, "/getMandalFromDivisionCitizenPortal", {"district": district_id})
     return _find_options(resp.text)
 
 
 @lru_cache(maxsize=1024)
 def fetch_villages(mandal_id: str) -> list:
+    mandal_id = _check_id(mandal_id, "mandal")
     with _client() as client:
         _get(client, LANDING_PATH)
-        resp = _get(client, f"/getVillageFromMandalCitizenPortal?mandalId={mandal_id}")
+        resp = _get(client, "/getVillageFromMandalCitizenPortal", {"mandalId": mandal_id})
     return _find_options(resp.text)
 
 
 @lru_cache(maxsize=4096)
 def fetch_survey_options(village_id: str) -> list:
+    village_id = _check_id(village_id, "village")
     with _client() as client:
         _get(client, LANDING_PATH)
-        resp = _get(client, f"/getSurveyCitizen?villId={village_id}&flag=survey")
+        resp = _get(client, "/getSurveyCitizen", {"villId": village_id, "flag": "survey"})
     return _find_options(resp.text)
 
 
 @lru_cache(maxsize=8192)
 def fetch_khata_options(village_id: str, survey_no: str) -> list:
+    village_id = _check_id(village_id, "village")
+    survey_no = _check_survey(survey_no)
     with _client() as client:
         _get(client, LANDING_PATH)
-        resp = _get(client, f"/getKhataNoCitizen?villId={village_id}&flag=khatanos&surveyNo={survey_no}")
+        resp = _get(client, "/getKhataNoCitizen", {"villId": village_id, "flag": "khatanos", "surveyNo": survey_no})
     return _find_options(resp.text)
+
+
+# Fixed token the page sends for the "passbook number + Aadhaar last 4" mode
+# (ppbType1 in the page JS, already base64 so it is sent as-is, not re-encrypted).
+_PPB_TYPE_AADHAAR = "eHdKAPzoX7n3faJvdKTkIA=="
+
+
+def _search_with_captcha(client: httpx.Client, build_request, max_attempts: int) -> dict:
+    """Run the portal's search, solving its captcha with ddddocr and retrying.
+
+    `build_request(encrypted_captcha)` returns (url_params, body) for getPublicDataInfo.
+    Survey and passbook searches differ only there; everything else is shared.
+
+    Confirmed live: this portal's grid/mesh-noise captcha measures ~50% single-shot
+    accuracy with ddddocr (verified against 6 real samples) — a harder OCR class than
+    Adangal's plaintext "captcha". 8 attempts at ~50% each is ~99.6% odds of one
+    success, cheaper than a heavier OCR tier.
+    """
+    last_detail = ""
+    for _ in range(max_attempts):
+        rand = random.random()
+        captcha_resp = _get(client, f"/captchaforViewRorandPahani?rand_number={rand}")
+        # Confirmed live: every captcha sample observed is uppercase-only (digits +
+        # uppercase letters); ddddocr's general model sometimes returns the right
+        # letter in the wrong case (e.g. "1bEK9" for "1BEK9"), which silently fails
+        # the server match. Force uppercase rather than trust the raw OCR case.
+        captcha_text = solve_captcha(captcha_resp.content).upper()
+        if not captcha_text:
+            last_detail = "ocr produced empty result"
+            continue
+
+        encrypted_captcha = _enc(captcha_text)
+
+        # Confirmed from a captured session: the site calls
+        # /checkcaptchaforViewRorandPahani with the encrypted captcha as a query
+        # param (empty body) before the main submit — this "commits" the captcha to
+        # the session; skipping it makes getPublicDataInfo return the generic error
+        # page even for a correct captcha. A failure here (network/unexpected) falls
+        # through to the submit, since the pre-check doesn't return the land data.
+        try:
+            _throttle.wait()
+            check_resp = client.post(
+                "/checkcaptchaforViewRorandPahani",
+                params={"captcha": encrypted_captcha},
+                content=b"",
+            )
+            check_resp.raise_for_status()
+            check_body = check_resp.text.strip().lower()
+            if check_body in ("false", "0", "fail", "invalid"):
+                last_detail = f"captcha pre-check rejected captcha guess {captcha_text!r}"
+                continue
+        except (httpx.TimeoutException, httpx.HTTPError):
+            pass  # if pre-check is unavailable, still attempt the main submit
+
+        url_params, data = build_request(encrypted_captcha)
+        try:
+            _throttle.wait()
+            resp = client.post("/getPublicDataInfo", params=url_params, data=data)
+            resp.raise_for_status()
+        except httpx.TimeoutException as exc:
+            raise PortalError(PORTAL_TIMEOUT, str(exc)) from exc
+        except httpx.HTTPError as exc:
+            raise PortalError(PORTAL_DOWN, str(exc)) from exc
+
+        lower = resp.text.lower()
+        # Confirmed live: a wrong captcha does NOT give a specific "captcha
+        # incorrect" message — it gives this same generic Spring/JSP error page
+        # ("Something went wrong..."). Since the other fields are already valid,
+        # treat it as a captcha-retry signal, not a hard failure.
+        if "something went wrong" in lower or 'id="txtlogout"' in lower:
+            last_detail = f"portal error page (likely wrong captcha guess {captcha_text!r})"
+            continue
+
+        return _parse_result(resp.text)
+
+    raise PortalError(CAPTCHA_FAILED, last_detail or "captcha retries exhausted")
 
 
 def fetch_pattadar_by_survey(
     *, district_id: str, mandal_id: str, village_id: str, survey_no: str, khata_id: str, max_attempts: int = 8
 ) -> dict:
-    # Confirmed live: this portal's grid/mesh-noise captcha style measures
-    # ~50% single-shot accuracy with ddddocr (manually verified against 6 real
-    # samples) — a harder OCR class than Adangal's plaintext-in-HTML
-    # "captcha". 8 attempts at ~50% each gives ~99.6% odds of at least one
-    # success, which is the cheaper fix before reaching for a heavier
-    # OCR tier (e.g. a vision-model fallback).
-    if not all([district_id, mandal_id, village_id, survey_no, khata_id]):
-        raise PortalError(BAD_INPUT, "district, mandal, village, survey number and khata number are all required")
+    district_id = _check_id(district_id, "district")
+    mandal_id = _check_id(mandal_id, "mandal")
+    village_id = _check_id(village_id, "village")
+    khata_id = _check_id(khata_id, "khata")
+    survey_no = _check_survey(survey_no)
 
-    with _client() as client:
-        _get(client, LANDING_PATH)  # seed JSESSIONID/setAuth cookies
-
-        last_detail = ""
-        for _ in range(max_attempts):
-            rand = random.random()
-            captcha_resp = _get(client, f"/captchaforViewRorandPahani?rand_number={rand}")
-            # Confirmed live: every captcha sample observed on this portal is
-            # uppercase-only (digits + uppercase letters) — ddddocr's general
-            # model sometimes guesses a correct letter in the wrong case
-            # (e.g. "1bEK9" for an actual "1BEK9"), which silently fails the
-            # server-side match. Force uppercase rather than trust the raw
-            # OCR case.
-            captcha_text = solve_captcha(captcha_resp.content).upper()
-            if not captcha_text:
-                last_detail = "ocr produced empty result"
-                continue
-
-            encrypted_captcha = _enc(captcha_text)
-
-            # Confirmed from captured browser session: the site calls
-            # /checkcaptchaforViewRorandPahani with the encrypted captcha as
-            # a URL query param (Content-Length: 0, empty body) before the
-            # main submit. This "commits" the captcha to the server session —
-            # skipping it causes the subsequent getPublicDataInfo to return
-            # the generic error page even when the captcha would otherwise
-            # be correct. Failures here (network errors, unexpected response)
-            # fall through to retry; they are not treated as hard errors
-            # because the pre-check does not itself return the land data.
-            try:
-                _throttle.wait()
-                check_resp = client.post(
-                    "/checkcaptchaforViewRorandPahani",
-                    params={"captcha": encrypted_captcha},
-                    content=b"",
-                )
-                check_resp.raise_for_status()
-                check_body = check_resp.text.strip().lower()
-                if check_body in ("false", "0", "fail", "invalid"):
-                    last_detail = f"captcha pre-check rejected captcha guess {captcha_text!r}"
-                    continue
-            except (httpx.TimeoutException, httpx.HTTPError):
-                pass  # if pre-check is unavailable, still attempt the main submit
-
-            # Confirmed from captured browser session: district and mandal
-            # travel as URL query-string params on getPublicDataInfo (NOT in
-            # the POST body). The body carries villageId/searchData/captcha
-            # etc. The server reads location context from the query string
-            # and search params from the body.
-            url_params = {
-                "district": district_id,
-                "mandal": mandal_id,
-                "divi": "",
-            }
-            data = {
+    def build_request(captcha: str):
+        # Confirmed from a captured session: district and mandal travel in the URL
+        # query string; the body carries villageId/searchData/captcha etc.
+        return (
+            {"district": district_id, "mandal": mandal_id, "divi": ""},
+            {
                 "villageId": village_id,
                 "flagToSearch": "surveynumber",
                 "searchData": _enc(survey_no),
                 "flagval": "district",
                 "khataNoIdselect": khata_id,
                 "ReqType": "Citizen",
-                "captcha": encrypted_captcha,
-            }
-            try:
-                _throttle.wait()
-                resp = client.post("/getPublicDataInfo", params=url_params, data=data)
-                resp.raise_for_status()
-            except httpx.TimeoutException as exc:
-                raise PortalError(PORTAL_TIMEOUT, str(exc)) from exc
-            except httpx.HTTPError as exc:
-                raise PortalError(PORTAL_DOWN, str(exc)) from exc
+                "captcha": captcha,
+            },
+        )
 
-            lower = resp.text.lower()
-            # Confirmed live: a wrong captcha does NOT produce a specific
-            # "captcha incorrect" message — it produces this same generic
-            # Spring/JSP error page ("Something went wrong... Click Here to
-            # go to home page") that the app shows for any server-side
-            # exception. Since every other field here is already known-valid,
-            # treat this page as a captcha-retry signal, not a hard failure.
-            if "something went wrong" in lower or 'id="txtlogout"' in lower:
-                last_detail = f"portal error page (likely wrong captcha guess {captcha_text!r})"
-                continue
+    def work():
+        with _client() as client:
+            _get(client, LANDING_PATH)  # seed JSESSIONID/setAuth cookies
+            return _search_with_captcha(client, build_request, max_attempts)
 
-            return _parse_result(resp.text)
+    return _single_flight(("survey", district_id, mandal_id, village_id, survey_no, khata_id), work)
 
-    raise PortalError(CAPTCHA_FAILED, last_detail or "captcha retries exhausted")
+
+def fetch_pattadar_by_passbook(
+    *, passbook_no: str, aadhaar_last4: str, flagval: str = "ppb", max_attempts: int = 8
+) -> dict:
+    """Search by passbook (PPB) number + the last 4 digits of the owner's Aadhaar.
+
+    The page encrypts the Aadhaar digits (AES, same key as everything else) and sends
+    the real values in the URL query string, like the survey search. We never log
+    either value (SKILL.md rule 3)."""
+    passbook_no = (passbook_no or "").strip()
+    aadhaar_last4 = (aadhaar_last4 or "").strip()
+    if not passbook_no or not aadhaar_last4:
+        raise PortalError(BAD_INPUT, "passbook number and the last 4 Aadhaar digits are both required")
+    if not re.fullmatch(r"[A-Za-z0-9]{1,12}", passbook_no):
+        raise PortalError(BAD_INPUT, "passbook number looks invalid")
+    if not re.fullmatch(r"[0-9]{4}", aadhaar_last4):
+        raise PortalError(BAD_INPUT, "enter exactly the last 4 digits of the Aadhaar number")
+
+    def build_request(captcha: str):
+        return (
+            {
+                "villageId": "",
+                "adhrfour": _enc(aadhaar_last4),
+                "ppbno": passbook_no,
+                "flagval": flagval,
+                "ppbType": _PPB_TYPE_AADHAAR,
+                "ReqType": "Citizen",
+                "captcha": captcha,
+            },
+            {
+                "villageId": "",
+                "adhrfour": "",
+                "ppbno": passbook_no,
+                "flagval": flagval,
+                "ReqType": "Citizen",
+                "captcha": captcha,
+            },
+        )
+
+    def work():
+        with _client() as client:
+            _get(client, LANDING_PATH)
+            result = _search_with_captcha(client, build_request, max_attempts)
+        if not result["found"]:
+            # A non-existent passbook/Aadhaar pair returns an empty reply (no fields),
+            # not the survey search's "no record" text — surface it the same way.
+            raise PortalError(NOT_FOUND, "no record for that passbook number and Aadhaar digits")
+        return result
+
+    return _single_flight(("passbook", passbook_no, aadhaar_last4), work)
 
 
 _FIELD_RE = re.compile(r"<strong>([^<]+)</strong>\s*<br>\s*([^<]*)", re.S)
