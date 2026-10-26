@@ -172,14 +172,16 @@ def fetch_document(key: str, kind: str) -> tuple:
     return pdf, f"HMDA-Lake-{safe}-{DOCUMENTS[kind][1]}.pdf"
 
 
-def _matches(filename: str, lake: dict, kind: str) -> bool:
-    """Is this the PDF we asked for? Guards against a stale table pointing at another row."""
+def _for_lake(filename: str, lake: dict) -> bool:
+    """Is this file this lake's: its ID ("1025_…", not "10251_…") or its name in the file name?
+    Guards against a stale table pointing at another row. The kind isn't checked: the button
+    decides it, and HMDA writes it several ways ("…_FTL", "…_FTL_final", "…_cadastral_final")."""
     squash = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
-    return (filename.lower().endswith(DOCUMENTS[kind][1].lower())
-            and (squash(lake["name"]) in squash(filename) or squash(filename).startswith(squash(lake["id"]))))
+    name, lake_id = squash(filename), squash(lake["id"])
+    return squash(lake["name"]) in name or (name.startswith(lake_id) and not name[len(lake_id):][:1].isdigit())
 
 
-# shortcut: keeps the last 16 PDFs (0.4-2.5 MB each) for 6 hours; move to disk if many people
+# shortcut: keeps the last 16 PDFs (0.1-4 MB each) for 6 hours; move to disk if many people
 # open the same lakes.
 @lru_cache(maxsize=16)
 def _document(key: str, kind: str, _bucket: int) -> bytes:
@@ -193,7 +195,7 @@ def _document(key: str, kind: str, _bucket: int) -> bytes:
         with _client() as client:
             resp = _send(client, "POST", BASE_URL, data=form)
             link = _PDF_LINK_RE.fullmatch(resp.headers.get("location", "")) if resp.status_code == 302 else None
-            if link and _matches(unquote(link[1]), lake, kind):
+            if link and _for_lake(unquote(link[1]), lake):
                 pdf = _send(client, "GET", FILES_URL + link[1] + ".pdf")
                 if pdf.status_code == 404:
                     raise PortalError(NOT_FOUND, "HMDA lists this PDF but its file is missing")

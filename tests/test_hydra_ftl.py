@@ -230,7 +230,7 @@ def test_a_stale_page_is_read_again_once(monkeypatch):
 
 @pytest.mark.parametrize("location", [
     "http://lakes.hmda.gov.in/hmdalake/9002_Other%20Kunta%20(Big)_FTL.pdf",  # another lake's map
-    "http://lakes.hmda.gov.in/hmdalake/9001-N-0001_Sample%20Cheruvu_CADASTRAL.pdf",  # another kind
+    "http://lakes.hmda.gov.in/hmdalake/9001-N-00011_Other%20Kunta_FTL.pdf",  # an ID that only begins the same
     "https://evil.example.com/hmdalake/9001-N-0001_Sample%20Cheruvu_FTL.pdf",
     "http://lakes.hmda.gov.in/other/9001-N-0001_Sample%20Cheruvu_FTL.pdf",
 ])
@@ -238,6 +238,16 @@ def test_a_redirect_to_the_wrong_file_is_never_followed(monkeypatch, location):
     fake = portal(monkeypatch, postback=lambda form: httpx.Response(302, headers={"location": location}))
     _raises(PORTAL_DOWN, client.fetch_document, KEY, "ftl")
     assert fake.count("GET") == 2  # the page twice, never the file
+
+
+@pytest.mark.parametrize("kind, location", [
+    ("ftl", "http://lakes.hmda.gov.in/hmdalake/9001-N-0001_FTL_final.pdf"),  # HMDA's names for some Hyderabad lakes
+    ("cadastral", "http://lakes.hmda.gov.in/hmdalake/9001-N-0001_cadastral_final.pdf"),
+    ("survey", "http://lakes.hmda.gov.in/hmdalake/9001-N-0001Sample%20Cheruvu_SyNo.pdf"),
+])
+def test_the_files_other_naming_styles_are_accepted(monkeypatch, kind, location):
+    portal(monkeypatch, postback=lambda form: httpx.Response(302, headers={"location": location}))
+    assert client.fetch_document(KEY, kind)[0] == PDF
 
 
 def test_a_typo_in_the_file_name_still_counts_if_the_lake_name_matches(monkeypatch):
