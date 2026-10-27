@@ -208,3 +208,9 @@ export async function lookupBpass(fileNo, opts) {
   const first = data.documents?.[0]
   return { ...data, doc: first ? { key: first.kind, ...(await getPdf(bpassDocumentPath(data.file_no, first.kind), opts)) } : null }
 }
+
+// ── RERA Certificate (TG-RERA) ───────────────────────────────────────────────
+
+export const searchRera = (fields, opts) => postJson('/api/rera/search', fields, opts)
+
+export const reraCertificateUrl = (kind, token) => `/api/rera/certificate?${new URLSearchParams({ kind, token })}`

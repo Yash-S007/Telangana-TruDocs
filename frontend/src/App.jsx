@@ -14,6 +14,7 @@ import GhmcMutationView from './views/GhmcMutation/GhmcMutationView.jsx'
 import GhmcPropertyTaxView from './views/GhmcPropertyTax/GhmcPropertyTaxView.jsx'
 import CdmaTaxView from './views/CdmaTax/CdmaTaxView.jsx'
 import BpassView from './views/Bpass/BpassView.jsx'
+import ReraView from './views/Rera/ReraView.jsx'
 import { MAIN_TOOL, TOOLS } from './tools.js'
 
 // Each tool's screen, by id. A tool not listed yet still shows its old form (LegacyTool).
@@ -29,6 +30,7 @@ const VIEWS = {
   'ghmc-property-tax': GhmcPropertyTaxView,
   'cdma-tax-receipt': CdmaTaxView,
   'building-permission': BpassView,
+  'rera-certificate': ReraView,
 }
 
 function ToolView({ id }) {
