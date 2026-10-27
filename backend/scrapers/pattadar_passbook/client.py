@@ -150,6 +150,14 @@ def _find_options(html: str) -> list:
     return results
 
 
+def _options(html: str) -> list:
+    """A list reply's options. A real empty list still carries "-- Select --"; a reply with no
+    <option> at all (a maintenance or error page) raises, so lru_cache never keeps it as empty."""
+    if "<option" not in html.lower():
+        raise PortalError(PORTAL_DOWN, "no list in the portal's reply")
+    return _find_options(html)
+
+
 # Districts/Mandals/Villages are government administrative boundaries — they
 # don't change while this process is running, and are shared across every
 # user. Caching them turns "every dropdown click re-hits the government
@@ -165,7 +173,9 @@ def fetch_districts() -> list:
     with _client() as client:
         html = _get(client, LANDING_PATH).text
     m = re.search(r'id="districtID"[^>]*>(.*?)</select>', html, re.S)
-    return _find_options(m.group(1)) if m else []
+    if not m:
+        raise PortalError(PORTAL_DOWN, "no district list on the page")
+    return _find_options(m.group(1))
 
 
 @lru_cache(maxsize=64)
@@ -174,7 +184,7 @@ def fetch_mandals(district_id: str) -> list:
     with _client() as client:
         _get(client, LANDING_PATH)
         resp = _get(client, "/getMandalFromDivisionCitizenPortal", {"district": district_id})
-    return _find_options(resp.text)
+    return _options(resp.text)
 
 
 @lru_cache(maxsize=1024)
@@ -183,7 +193,7 @@ def fetch_villages(mandal_id: str) -> list:
     with _client() as client:
         _get(client, LANDING_PATH)
         resp = _get(client, "/getVillageFromMandalCitizenPortal", {"mandalId": mandal_id})
-    return _find_options(resp.text)
+    return _options(resp.text)
 
 
 @lru_cache(maxsize=4096)
@@ -192,7 +202,7 @@ def fetch_survey_options(village_id: str) -> list:
     with _client() as client:
         _get(client, LANDING_PATH)
         resp = _get(client, "/getSurveyCitizen", {"villId": village_id, "flag": "survey"})
-    return _find_options(resp.text)
+    return _options(resp.text)
 
 
 @lru_cache(maxsize=8192)
@@ -202,7 +212,7 @@ def fetch_khata_options(village_id: str, survey_no: str) -> list:
     with _client() as client:
         _get(client, LANDING_PATH)
         resp = _get(client, "/getKhataNoCitizen", {"villId": village_id, "flag": "khatanos", "surveyNo": survey_no})
-    return _find_options(resp.text)
+    return _options(resp.text)
 
 
 # Fixed token the page sends for the "passbook number + Aadhaar last 4" mode

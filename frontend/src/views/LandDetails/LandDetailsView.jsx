@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import VillageSearch from '../../components/common/VillageSearch.jsx'
 import SelectLoading from '../../components/common/SelectLoading.jsx'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
@@ -40,16 +40,19 @@ function SurveyFields({ request }) {
     }
   }
 
-  async function onSurvey(value) {
+  async function onSurvey(value, typed = false) {
     const mine = ++latest.current
-    setSurveyNo(value)
+    if (!typed) setSurveyNo(value)
     setKhatas({ loading: Boolean(value), list: [] })
     setKhataId('')
     reset()
     if (!value) return
     try {
       const list = await loadLandKhatas(village.village_id, value)
-      if (latest.current === mine) setKhatas({ loading: false, list })
+      if (latest.current === mine) {
+        setKhatas({ loading: false, list })
+        if (!list.length) fail('No khata numbers found for this survey number. Please check the number.')
+      }
     } catch (err) {
       if (latest.current === mine) { setKhatas({ loading: false, list: [] }); fail(err.message) }
     }
@@ -70,6 +73,14 @@ function SurveyFields({ request }) {
   }
 
   const manual = village && !surveys.loading && surveys.list.length === 0
+  // A typed survey number (the portal gave no list) loads its khata numbers once typing pauses.
+  const loadTyped = useEffectEvent((value) => onSurvey(value, true))
+  useEffect(() => {
+    if (!manual || !surveyNo.trim()) return
+    const t = setTimeout(() => loadTyped(surveyNo.trim()), 600)
+    return () => clearTimeout(t)
+  }, [manual, surveyNo])
+
   return (
     <form onSubmit={submit}>
       <div className="field">
@@ -83,7 +94,7 @@ function SurveyFields({ request }) {
             type="text"
             placeholder="e.g. 123 or 1/2A"
             value={surveyNo}
-            onChange={(e) => { setSurveyNo(e.target.value); setKhatas({ loading: false, list: [] }); setKhataId(''); reset() }}
+            onChange={(e) => { ++latest.current; setSurveyNo(e.target.value); setKhatas({ loading: false, list: [] }); setKhataId(''); reset() }}
             disabled={busy}
             autoComplete="off"
           />
@@ -141,7 +152,7 @@ function PassbookFields({ request }) {
           inputMode="numeric"
           placeholder="e.g. 1234"
           value={aadhaar}
-          onChange={(e) => { setAadhaar(e.target.value.replace(/\D/g, '').slice(0, 4)); reset() }}
+          onChange={(e) => { setAadhaar(e.target.value.replace(/\D/g, '').slice(-4)); reset() }}  // a pasted full Aadhaar keeps its last 4
           disabled={busy}
           autoComplete="off"
         />

@@ -240,3 +240,37 @@ def test_a_reply_without_fields_is_no_record(monkeypatch):
     r = _app().post("/api/pattadar/pdf", json={"district_id": "5", "mandal_id": "83", "village_id": "507004", "survey_no": "1",
                                                "khata_id": "1"})
     assert r.status_code == 404 and r.json() == {"detail": NOT_FOUND}
+
+
+EMPTY_LIST_HTML = '<html><head></head><body>\n<option selected value="0">-- Select --</option>\n</body></html>'  # the portal's own "nothing here"
+MAINTENANCE_HTML = "<html><body><h1>Site under maintenance</h1></body></html>"
+
+
+def _reply_with(monkeypatch, html):
+    class Reply:
+        text = html
+    monkeypatch.setattr(client, "_get", lambda c, path, params=None: Reply())
+
+
+def test_a_page_without_any_list_is_not_remembered_as_empty(monkeypatch):
+    _reply_with(monkeypatch, MAINTENANCE_HTML)
+    for fn, args in [(client.fetch_districts, ()), (client.fetch_mandals, ("5",)), (client.fetch_villages, ("83",)),
+                     (client.fetch_survey_options, ("507004",)), (client.fetch_khata_options, ("507004", "1"))]:
+        fn.cache_clear()
+        _raises(PORTAL_DOWN, fn, *args)
+        assert fn.cache_info().currsize == 0, fn.__name__
+    r = TestClient(_app_with_router()).get("/api/pattadar/survey-options/507004")
+    assert r.status_code == 502 and r.json() == {"detail": PORTAL_DOWN}
+
+
+def test_a_real_empty_list_is_still_an_empty_list(monkeypatch):
+    _reply_with(monkeypatch, EMPTY_LIST_HTML)
+    client.fetch_khata_options.cache_clear()
+    assert client.fetch_khata_options("507004", "99999") == []
+    client.fetch_khata_options.cache_clear()
+
+
+def _app_with_router():
+    app = FastAPI()
+    app.include_router(router_mod.router)
+    return app
