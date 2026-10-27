@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import SelectLoading from '../../components/common/SelectLoading.jsx'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
 import LoaderModal from '../../components/common/LoaderModal.jsx'
-import RecordResult from '../../components/common/RecordResult.jsx'
-import { loadGhmcCircles, searchGhmcPropertyTax } from '../../utils/api.js'
+import DocumentResult from '../../components/common/DocumentResult.jsx'
+import { ghmcPropertyTaxPdf, loadGhmcCircles } from '../../utils/api.js'
 import { useRequest } from '../../utils/useRequest.js'
 
 export default function GhmcPropertyTaxView() {
@@ -23,7 +23,7 @@ export default function GhmcPropertyTaxView() {
     e.preventDefault()
     if (!circle) { fail('Please select the circle.'); return }
     if (!ptin.trim()) { fail('Please enter the PTIN number.'); return }
-    request.run((signal) => searchGhmcPropertyTax(circle, ptin.trim(), { signal }))
+    request.run((signal) => ghmcPropertyTaxPdf(circle, ptin.trim(), { signal }))
   }
 
   return (
@@ -71,7 +71,7 @@ export default function GhmcPropertyTaxView() {
         </form>
       </div>
 
-      {result && <RecordResult result={result} />}
+      {result && <DocumentResult key={result.filename} first={result} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Checking GHMC property tax…" />
     </div>

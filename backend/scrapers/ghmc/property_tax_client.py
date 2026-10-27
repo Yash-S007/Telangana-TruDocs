@@ -14,8 +14,10 @@ from functools import lru_cache
 
 import httpx
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.core.rate_limit import RateLimiter
+from backend.scrapers.ghmc.record_pdf import record_pdf
 
 BASE_URL = "https://www.ghmc.gov.in"
 PAGE_PATH = "/Search.aspx"
@@ -120,3 +122,14 @@ def _parse_result(html: str, query: str) -> dict:
         "raw_fields": record,
         "found": bool(record),
     }
+
+
+def fetch_property_tax_pdf(*, circle: str, ptin: str = "", owner_name: str = "", door_no: str = "") -> tuple:
+    """(pdf bytes, filename): the record the tool shows, as our PDF."""
+    record = fetch_property_tax(ptin=ptin, owner_name=owner_name, door_no=door_no, circle=circle)
+    circle_name = next((c["label"] for c in fetch_circles() if c["value"] == circle), "")
+    query = (ptin or door_no or owner_name).strip()
+    what = "PTIN" if ptin.strip() else "Door No." if door_no.strip() else "Owner"
+    searched = f"{what} {query}" + (f" · {circle_name} circle" if circle_name else "")
+    return (record_pdf(record, title="GHMC Property Tax", searched=searched, source="GHMC property tax search (ghmc.gov.in)"),
+            pdf.filename("GHMC-property-tax", query))

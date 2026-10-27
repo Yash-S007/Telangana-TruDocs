@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
 import LoaderModal from '../../components/common/LoaderModal.jsx'
-import RecordResult from '../../components/common/RecordResult.jsx'
-import { searchGhmcMutation } from '../../utils/api.js'
+import DocumentResult from '../../components/common/DocumentResult.jsx'
+import { ghmcMutationPdf } from '../../utils/api.js'
 import { useRequest } from '../../utils/useRequest.js'
 
 export default function GhmcMutationView() {
@@ -14,7 +14,7 @@ export default function GhmcMutationView() {
     e.preventDefault()
     const value = assessmentNumber.trim()
     if (!value) { fail('Please enter the assessment number.'); return }
-    request.run((signal) => searchGhmcMutation(value, { signal }))
+    request.run((signal) => ghmcMutationPdf(value, { signal }))
   }
 
   return (
@@ -55,7 +55,7 @@ export default function GhmcMutationView() {
         </form>
       </div>
 
-      {result && <RecordResult result={result} />}
+      {result && <DocumentResult key={result.filename} first={result} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Checking GHMC…" />
     </div>

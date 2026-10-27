@@ -11,8 +11,10 @@ import re
 
 import httpx
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.core.rate_limit import RateLimiter
+from backend.scrapers.ghmc.record_pdf import record_pdf
 
 BASE_URL = "https://eodb.ghmc.gov.in"
 PAGE_PATH = "/KnowYourMutationStatus_New.aspx"
@@ -89,3 +91,11 @@ def _parse_result(html: str, assessment_number: str) -> dict:
         "raw_fields": record,
         "found": bool(record),
     }
+
+
+def fetch_mutation_pdf(assessment_number: str) -> tuple:
+    """(pdf bytes, filename): the status the tool shows, as our PDF."""
+    record = fetch_mutation_status(assessment_number)
+    number = assessment_number.strip()
+    return (record_pdf(record, title="GHMC Mutation Status", searched=f"Assessment No. {number}",
+                       source="GHMC mutation status (eodb.ghmc.gov.in)"), pdf.filename("GHMC-mutation", number))

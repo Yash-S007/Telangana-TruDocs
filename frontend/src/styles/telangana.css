@@ -186,32 +186,6 @@
   }
 }
 
-/* tables the portal drew (Adangal), kept as drawn; wide ones scroll inside the card */
-.portal-tables {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  margin-top: 4px;
-}
-
-.portal-tables table {
-  border-collapse: collapse;
-  font-size: 13px;
-  margin: 8px 0;
-}
-
-.portal-tables th,
-.portal-tables td {
-  border: 1px solid var(--border);
-  padding: 6px 8px;
-  text-align: left;
-  vertical-align: top;
-}
-
-.portal-tables th {
-  background: var(--surface-2);
-  font-weight: 600;
-}
-
 /* A wide result (Prohibited Lands' 10-column survey list) scrolls inside its card instead of
    stretching the section's grid, which pushed the heading off the left of the screen. */
 @media (min-width: 768px) {

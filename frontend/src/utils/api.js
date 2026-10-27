@@ -207,12 +207,13 @@ export async function lookupLake(key, opts) {
 
 // ── GHMC (Hyderabad) ─────────────────────────────────────────────────────────
 
-export const searchGhmcMutation = (assessmentNumber, opts) =>
-  postJson('/api/ghmc/mutation', { assessment_number: assessmentNumber }, opts)
+// The records as our PDFs (the pages show only the PDF).
+export const ghmcMutationPdf = (assessmentNumber, opts) =>
+  postPdf('/api/ghmc/mutation/pdf', { assessment_number: assessmentNumber }, opts)
 
 export const loadGhmcCircles = (opts) => getJson('/api/ghmc/circles', opts)
 
-export const searchGhmcPropertyTax = (circle, ptin, opts) => postJson('/api/ghmc/property-tax', { circle, ptin }, opts)
+export const ghmcPropertyTaxPdf = (circle, ptin, opts) => postPdf('/api/ghmc/property-tax/pdf', { circle, ptin }, opts)
 
 // ── CDMA Property Tax Receipt (towns outside Hyderabad) ──────────────────────
 
