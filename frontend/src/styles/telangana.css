@@ -7,9 +7,12 @@
   }
 }
 
-/* iPhones zoom the page into any field under 16px when it's tapped; the shell's fields are 15px. */
+/* iPhones zoom the page into any field under 16px when it's tapped; the shell's fields are 15px.
+   Same selectors as the shell's rule, so this one (loaded later) wins. */
 @media (max-width: 767px) {
-  .field input,
+  .field input[type="text"],
+  .field input[type="date"],
+  .field input[type="number"],
   .field select {
     font-size: 16px;
   }
@@ -35,4 +38,95 @@
 /* Chrome's own value; Safari only dimmed disabled dropdowns through the native look. */
 .field select:disabled {
   opacity: 0.7;
+}
+
+/* ── Shared pieces our tools add to the shell ──────────────── */
+
+/* a short hint after a field's label ("First 3+ letters of the name") */
+.field label .field-hint {
+  margin-left: 8px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-faint);
+}
+
+/* a spinner inside a dropdown or the village box while its options load */
+.select-wrap {
+  position: relative;
+}
+
+.select-spinner,
+.typeahead-spinner {
+  position: absolute;
+  top: 50%;
+  right: 38px;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  pointer-events: none;
+}
+
+.typeahead-spinner {
+  right: 14px;
+}
+
+/* a result under the form: a card like the form's, with its summary line on top */
+.result-card {
+  padding: 20px;
+}
+
+.result-card > .status-msg {
+  margin-bottom: 14px;
+}
+
+/* On phones a result table becomes one labelled card per row, so nothing scrolls sideways. */
+@media (max-width: 767px) {
+  .result-table.stack-on-mobile {
+    min-width: 0;
+  }
+
+  .result-table.stack-on-mobile thead {
+    display: none;
+  }
+
+  .result-table.stack-on-mobile tr {
+    display: block;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--surface-3);
+  }
+
+  .result-table.stack-on-mobile tr:last-child {
+    border-bottom: none;
+  }
+
+  .result-table.stack-on-mobile td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+    border: none;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .result-table.stack-on-mobile td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    text-align: left;
+  }
+
+  .result-table.stack-on-mobile tr:hover td {
+    background: none;
+  }
 }
