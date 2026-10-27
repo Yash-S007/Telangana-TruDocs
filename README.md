@@ -109,3 +109,27 @@ at most 2 searches to the government map server at once; village map shares surv
 .venv/bin/python -m backend.scripts.load_test_hydra_ftl --base http://localhost:8000 -n 10
 .venv/bin/python -m backend.scripts.load_test_hydra_ftl --base http://localhost:8000 -n 10 --same
 ```
+
+## Deploy on Google Cloud Run
+
+The Dockerfile builds the page and the server into one image. Cloud Build builds it from the source, so no Docker is
+needed on your machine:
+```
+gcloud run deploy telangana-trudocs --source . --region asia-south1 \
+  --memory 1Gi --cpu 1 --timeout 300 --min-instances 1 --max-instances 1 --allow-unauthenticated
+```
+- **One instance.** The caches, the limit of 60 requests a minute per government site and the 30 searches a minute
+  per person live in the server's memory: a second instance would double what each portal gets and split the caches.
+  Share them first (e.g. Redis on Memorystore) before raising `--max-instances`.
+- **asia-south1 (Mumbai)** keeps our requests to the government sites inside India; some government sites refuse
+  foreign addresses.
+- **`--min-instances 1`**: no cold start, so the first search after a quiet spell doesn't wait for the server to load.
+- **1 GiB memory**: the server peaked at about 270 MB in the stress tests; big 22-A PDFs (up to 18 MB) need headroom.
+- **`--timeout 300`**: the page gives up after 150 s; the slowest sites (22-A PDFs, TGRAC maps) answer within 60 s.
+- **The visitor's address** comes from the X-Forwarded-For entry Cloud Run's proxy adds (`TRUST_PROXY_HOPS=1`, set in
+  the Dockerfile; use `--set-env-vars TRUST_PROXY_HOPS=2` behind a Google load balancer). Check it once after
+  deploying: 31 quick searches from one phone get "Too many searches" while a phone on another network still
+  searches. If both are refused, the setting is wrong and everyone shares one limit.
+- **Health check**: `/api/health`. **Logs**: one line per API request in Cloud Logging (route, status, time; never
+  the numbers searched).
+- **Before going live**: confirm the licence for the Esri satellite photos (Survey Map, Village Map).
