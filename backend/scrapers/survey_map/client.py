@@ -45,6 +45,8 @@ _throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minut
 _portal_slots = threading.BoundedSemaphore(2)
 QUEUE_WAIT_SECONDS = 150
 
+# Not "no record… double-check": the user's details are right, the village just has no map online.
+NO_MAP = "This village's map isn't available online yet."
 _DMV_RE = re.compile(r"[0-9]{1,10}")  # not \d: that also matches Telugu and other non-ASCII digits
 _SURVEY_RE = re.compile(r"[^\x00-\x1f]{1,30}")
 
@@ -119,7 +121,7 @@ def fetch_village_parcels(dmv: str) -> tuple:
     dmv = _check_dmv(dmv)
     version, parcels = single_flight(("survey-map", dmv), lambda: _village_parcels(dmv))
     if not parcels:
-        raise PortalError(NOT_FOUND, "no survey map for this village")
+        raise PortalError(NO_MAP, "no survey map for this village")
     return version, parcels
 
 
@@ -139,7 +141,7 @@ def fetch_survey_options(dmv: str) -> list:
         if _is_survey(p):
             options[p["survey_no"]] = f"{p['survey_no']} ({p['remarks']})" if p["remarks"] else p["survey_no"]
     if not options:  # e.g. a map holding only the village outline
-        raise PortalError(NOT_FOUND, "village map has no survey numbers")
+        raise PortalError(NO_MAP, "village map has no survey numbers")
     return [{"value": v, "label": options[v]} for v in sorted(options, key=_natural)]
 
 

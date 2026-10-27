@@ -11,7 +11,7 @@ from backend.scrapers.survey_map import pdf as survey_map_pdf
 router = APIRouter(prefix="/api/survey-map", tags=["survey-map"])
 _threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
-_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, survey_map_client.NO_MAP: 404}
 
 
 def _http_error(exc: PortalError) -> HTTPException:

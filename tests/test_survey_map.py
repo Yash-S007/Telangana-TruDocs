@@ -128,8 +128,8 @@ def test_survey_number_checks(monkeypatch):
 
 def test_village_without_a_map_is_not_found_and_not_rescanned(monkeypatch):
     calls = fake_portal(monkeypatch, features=[])
-    _raises(NOT_FOUND, client.fetch_survey_options, DMV)
-    _raises(NOT_FOUND, client.fetch_survey_options, DMV)
+    _raises(client.NO_MAP, client.fetch_survey_options, DMV)
+    _raises(client.NO_MAP, client.fetch_survey_options, DMV)
     assert [url for url, _ in calls] == [LIS_URL, BHUNAKSHA_URL]  # each copy asked once, then cached
 
 
@@ -145,7 +145,7 @@ def test_village_missing_from_the_30cm_map_comes_from_the_older_map(monkeypatch)
 
 def test_map_with_only_a_village_outline_is_not_found(monkeypatch):
     fake_portal(monkeypatch, features=[feature("", "Parcel Boundary", "", square(78.33, 17.38))])
-    _raises(NOT_FOUND, client.fetch_survey_options, DMV)
+    _raises(client.NO_MAP, client.fetch_survey_options, DMV)
 
 
 def test_identical_requests_at_once_scan_the_portal_once(monkeypatch):

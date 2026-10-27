@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
+from backend.core.errors import BAD_INPUT, PortalError
 from backend.routers import village_map as village_map_router
 from backend.scrapers.survey_map import client as survey_map
 from backend.scrapers.village_map import client
@@ -43,7 +43,7 @@ def portal(monkeypatch):
     def fetch(dmv):
         calls.append(dmv)
         if dmv.strip() != DMV:
-            raise PortalError(NOT_FOUND, "no survey map for this village")
+            raise PortalError(survey_map.NO_MAP, "no survey map for this village")
         return "30cm", PARCELS
 
     monkeypatch.setattr(survey_map, "fetch_village_parcels", fetch)
@@ -80,8 +80,9 @@ def test_unknown_village_codes_never_reach_the_portal(monkeypatch):
 
 
 def test_village_without_a_map_is_a_friendly_not_found(portal):
-    resp = _app().get("/api/village-map/map/1903030")
-    assert resp.status_code == 404 and resp.json()["detail"] == NOT_FOUND
+    for path in ("/api/village-map/map/1903030", "/api/village-map/pdf/1903030"):
+        resp = _app().get(path)
+        assert resp.status_code == 404 and resp.json()["detail"] == "This village's map isn't available online yet."
 
 
 def test_pdf_has_a_clear_name(portal, photo):

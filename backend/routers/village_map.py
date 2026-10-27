@@ -3,12 +3,13 @@ from fastapi import APIRouter, HTTPException
 from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
 from backend.core.tool_threads import ToolThreads
+from backend.scrapers.survey_map import client as survey_map_client
 from backend.scrapers.village_map import client as village_map_client
 
 router = APIRouter(prefix="/api/village-map", tags=["village-map"])
 _threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
-_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, survey_map_client.NO_MAP: 404}
 
 
 def _status(exc: PortalError) -> int:
