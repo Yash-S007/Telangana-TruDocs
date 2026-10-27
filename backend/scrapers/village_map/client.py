@@ -238,12 +238,12 @@ def _draw(data: dict, page: tuple, frame: tuple, box: tuple, photo) -> bytes:
     return buf.getvalue()
 
 
-def _label(c, text: str, pts: list) -> None:
+def _label(c, text: str, pts: list, biggest: float = 9) -> None:
     """The survey number in the middle of its parcel, as large as the parcel allows: white on a
     dark edge so it reads on any photo. Small ones are tiny but sharp when zoomed in."""
     xs, ys = [p[0] for p in pts], [p[1] for p in pts]
     w, h = max(xs) - min(xs), max(ys) - min(ys)
-    size = max(1.2, min(9, 0.45 * h, 0.85 * w / (0.56 * len(text))))
+    size = max(1.2, min(biggest, 0.45 * h, 0.85 * w / (0.56 * len(text))))
     x = (min(xs) + max(xs)) / 2 - c.stringWidth(text, "Helvetica-Bold", size) / 2
     y = (min(ys) + max(ys)) / 2 - size * 0.35
     c.setLineWidth(size * 0.28)

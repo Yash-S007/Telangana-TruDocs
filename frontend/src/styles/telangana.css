@@ -294,116 +294,7 @@ a.table-action-btn {
   }
 }
 
-/* ── Survey Map: the parcel on a satellite photo ───────────── */
-.survey-map {
-  margin: 14px 0 0;
-  background: #2b2f2c;
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.survey-map svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.survey-map .nb path {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.8);
-  stroke-width: 1.2;
-}
-
-.survey-map .own-halo {
-  fill: none;
-  stroke: rgba(0, 0, 0, 0.55);
-  stroke-width: 7;
-  stroke-linejoin: round;
-}
-
-.survey-map .own {
-  fill: rgba(245, 196, 94, 0.22);
-  stroke: var(--accent);
-  stroke-width: 3.5;
-  stroke-linejoin: round;
-}
-
-.survey-map text {
-  fill: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  text-anchor: middle;
-  dominant-baseline: central;
-  paint-order: stroke; /* a dark outline under the letters, so they read on any terrain */
-  stroke: rgba(0, 0, 0, 0.75);
-  stroke-width: 3px;
-  stroke-linejoin: round;
-}
-
-.survey-map .own-label {
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.survey-map .corner circle {
-  fill: var(--accent);
-  stroke: #fff;
-  stroke-width: 2;
-}
-
-.survey-map .corner text {
-  text-anchor: start;
-}
-
-.survey-map figcaption {
-  padding: 4px 10px;
-  font-size: 10px;
-  color: #d9d9d4;
-}
-
-.map-card .record-fields {
-  margin-top: 8px;
-}
-
-.corner-scroll {
-  max-height: 280px;
-  overflow-y: auto;
-  margin-top: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.corner-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.corner-table th {
-  position: sticky;
-  top: 0;
-  padding: 8px 14px;
-  background: var(--surface);
-  border-bottom: 1.5px solid var(--border);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-align: left;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.corner-table td {
-  padding: 7px 14px;
-  border-bottom: 1px solid var(--surface-3);
-}
-
-.corner-table td:first-child {
-  font-weight: 700;
-  color: var(--primary);
-}
-
+/* ── Survey Map: the spot in Google Maps, under the map's PDF ── */
 .maps-link {
   display: flex;
   align-items: center;
@@ -420,23 +311,6 @@ a.table-action-btn {
 
 .maps-link:hover {
   background: var(--primary-hover);
-}
-
-/* The map is drawn 640 wide, so on a phone its labels need to be bigger to stay legible. */
-@media (max-width: 600px) {
-  .survey-map text {
-    font-size: 22px;
-  }
-
-  .survey-map .own-label {
-    font-size: 30px;
-  }
-
-  .corner-table th,
-  .corner-table td {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
 }
 
 /* ── Village Map: a whole village, zoomable ────────────────── */

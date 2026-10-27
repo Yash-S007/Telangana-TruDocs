@@ -177,7 +177,12 @@ export async function lookupProhibited(location, opts) {
 export const loadSurveyMapSurveys = (dmv, opts) =>
   getJson(`/api/survey-map/survey-options/${encodeURIComponent(dmv)}`, opts)
 
-export const loadSurveyParcel = (dmv, surveyNo, opts) => postJson('/api/survey-map/parcel', { dmv, survey_no: surveyNo }, opts)
+// A survey number and its map as our PDF together, so the result opens with its preview.
+export async function lookupSurveyMap(dmv, surveyNo, opts) {
+  const body = { dmv, survey_no: surveyNo }
+  const parcel = await postJson('/api/survey-map/parcel', body, opts)
+  return { ...parcel, doc: { key: 'map', ...(await postPdf('/api/survey-map/pdf', body, opts)) } }
+}
 
 export const loadVillageMap = (dmv, opts) => getJson(`/api/village-map/map/${encodeURIComponent(dmv)}`, opts)
 

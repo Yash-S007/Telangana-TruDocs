@@ -6,12 +6,14 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import pytest
+from reportlab import rl_config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.routers import survey_map as survey_map_router
 from backend.scrapers.survey_map import client
+from backend.scrapers.survey_map import pdf as survey_map_pdf
 
 DMV = "1516004"  # a village code from survey_map_villages.json (codes are public, not personal)
 
@@ -181,8 +183,9 @@ def test_routes_map_errors_instead_of_500(monkeypatch, message, status):
     monkeypatch.setattr(client, "fetch_parcel", fail)
     c = _app()
     assert c.get(f"/api/survey-map/survey-options/{DMV}").status_code == status
-    r = c.post("/api/survey-map/parcel", json={"dmv": DMV, "survey_no": "10"})
-    assert r.status_code == status and r.json()["detail"] == message
+    for path in ("/api/survey-map/parcel", "/api/survey-map/pdf"):  # the PDF loads into the preview: JSON errors
+        r = c.post(path, json={"dmv": DMV, "survey_no": "10"})
+        assert r.status_code == status and r.json()["detail"] == message
 
 
 def test_parcel_route_needs_both_fields():
@@ -238,3 +241,43 @@ def test_broken_shapes_from_the_server_are_skipped_not_a_500(monkeypatch):
     assert [o["value"] for o in client.fetch_survey_options(DMV)] == ["2", "10", "300"]
     _raises(NOT_FOUND, client.fetch_parcel, DMV, "5")
     assert client.fetch_parcel(DMV, "10")["area_sq_m"] > 0
+
+
+def test_pdf_frames_the_parcel_like_the_page():
+    x0, y0, x1, y1 = survey_map_pdf._frame([square(78.33, 17.38, d=0.0001)])  # a ~10 m plot
+    assert round(x1 - x0) == 200 and round((x1 - x0) / (y1 - y0), 3) == round(4 / 3, 3)  # at least 200 m, 4:3
+    ring = square(78.33, 17.38, d=0.009)  # ~1 km, a little taller than wide in Web Mercator metres
+    x0, y0, x1, y1 = survey_map_pdf._frame([ring])
+    tall = survey_map_pdf._merc(78.33, 17.389)[1] - survey_map_pdf._merc(78.33, 17.38)[1]
+    assert y1 - y0 == pytest.approx(2.2 * tall) and (x1 - x0) / (y1 - y0) == pytest.approx(4 / 3)  # 0.6 of it as room each side
+
+
+def test_pdf_photo_halves_its_pixels_until_esri_has_one(monkeypatch):
+    sizes = []
+
+    def esri(request):
+        sizes.append(request.url.params["size"])
+        if len(sizes) < 3:
+            return httpx.Response(500, text="Error exporting map")
+        return httpx.Response(200, content=b"\xff\xd8 a jpeg", headers={"content-type": "image/jpeg"})
+
+    real = httpx.Client
+    monkeypatch.setattr(survey_map_pdf.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(esri), **kw))
+    box = (0, 0, 1000, 750)  # 1 km across: 3226 px at 0.31 m, capped at 1280
+    assert survey_map_pdf._photo(box) == b"\xff\xd8 a jpeg"
+    assert sizes == ["1280,960", "640,480", "320,240"]
+
+
+def test_pdf_shows_the_map_details_and_corners(monkeypatch):
+    fake_portal(monkeypatch)
+    monkeypatch.setattr(survey_map_pdf, "_photo", lambda box: None)  # Esri unreachable: plain ground
+    monkeypatch.setattr(rl_config, "pageCompression", 0)
+    r = _app().post("/api/survey-map/pdf", json={"dmv": DMV, "survey_no": "10"})
+    assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
+    assert r.headers["content-disposition"] == 'inline; filename="Survey-map-Kokapet-10.pdf"'
+    for text in (b"(Survey Map: Survey No. 10)", b"(Kokapet village, Gandipet mandal, Rangareddy district, Telangana)",
+                 b"(The satellite photo was unavailable when this PDF was made.)", b"(2 acres 14 guntas", b"(17.38045, 78.33045)",
+                 b"(30 cm map, matched to sharp satellite imagery)", b"(4 corner points)", b"(P4)", b"(17.3809)", b"(2) Tj",
+                 b"not a legal survey."):
+        assert text in r.content, text
+    assert b"(Road)" not in r.content and b"(99901)" not in r.content  # roads are drawn, not numbered
