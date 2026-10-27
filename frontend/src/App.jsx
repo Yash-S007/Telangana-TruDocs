@@ -2,7 +2,6 @@ import { Fragment, useState, useEffect } from 'react'
 import AppHeader from './components/layout/AppHeader.jsx'
 import DrawerMenu from './components/layout/DrawerMenu.jsx'
 import BottomSheet from './components/common/BottomSheet.jsx'
-import { LegacyTool } from './legacy/LegacyTools.jsx'
 import MarketValueView from './views/MarketValue/MarketValueView.jsx'
 import LandDetailsView from './views/LandDetails/LandDetailsView.jsx'
 import AdangalView from './views/Adangal/AdangalView.jsx'
@@ -17,7 +16,7 @@ import BpassView from './views/Bpass/BpassView.jsx'
 import ReraView from './views/Rera/ReraView.jsx'
 import { MAIN_TOOL, TOOLS } from './tools.js'
 
-// Each tool's screen, by id. A tool not listed yet still shows its old form (LegacyTool).
+// Each tool's screen, by id (src/views/<Tool>/<Tool>View.jsx).
 const VIEWS = {
   'market-value': MarketValueView,
   'pattadar-passbook': LandDetailsView,
@@ -35,7 +34,7 @@ const VIEWS = {
 
 function ToolView({ id }) {
   const View = VIEWS[id]
-  return View ? <View /> : <LegacyTool id={id} />
+  return <View />
 }
 
 const SHEET_TITLES = Object.fromEntries(TOOLS.map((t) => [t.id, t.sheet]))
