@@ -1,5 +1,9 @@
 import { useEffect, useEffectEvent } from 'react'
 
+// The history.back() of a sheet just closed with ×. It lands a moment later, so a sheet opened
+// meanwhile waits for it; otherwise that late Back would close the new sheet.
+let leaving = Promise.resolve()
+
 export default function BottomSheet({ open, onClose, title, children }) {
   useEffect(() => {
     if (open) {
@@ -14,11 +18,23 @@ export default function BottomSheet({ open, onClose, title, children }) {
   const onBack = useEffectEvent(() => onClose())
   useEffect(() => {
     if (!open) return
-    history.pushState({ sheet: true }, '')
-    window.addEventListener('popstate', onBack)
+    let live = true
+    let pushed = false
+    leaving.then(() => {
+      if (!live) return
+      history.pushState({ sheet: true }, '')
+      pushed = true
+      window.addEventListener('popstate', onBack)
+    })
     return () => {
+      live = false
       window.removeEventListener('popstate', onBack)
-      if (history.state?.sheet) history.back()  // closed with × or a tap outside: drop our history entry
+      if (pushed && history.state?.sheet) {  // closed with × or a tap outside: drop our history entry
+        leaving = new Promise((done) => {
+          window.addEventListener('popstate', () => done(), { once: true })
+          history.back()
+        })
+      }
     }
   }, [open])
 
