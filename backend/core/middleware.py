@@ -89,3 +89,24 @@ class PerPersonLimit:
             response = JSONResponse({"detail": TOO_MANY}, status_code=429, headers={"Retry-After": "60"})
             return await response(scope, receive, send)
         await self.app(scope, receive, send)
+
+
+MAX_BODY = 64 * 1024  # a search sends a few hundred bytes of JSON
+TOO_BIG = "That request is too large."
+
+
+class BodyLimit:
+    """Refuse an API request whose body is over MAX_BODY, or of unknown size, before it is read:
+    a 20 MB POST used to add about 60 MB to the server's memory."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith("/api/"):
+            headers = dict(scope["headers"])
+            length = headers.get(b"content-length")
+            if (length is None and b"transfer-encoding" in headers) or (
+                    length is not None and (not length.isdigit() or int(length) > MAX_BODY)):
+                return await JSONResponse({"detail": TOO_BIG}, status_code=413)(scope, receive, send)
+        await self.app(scope, receive, send)

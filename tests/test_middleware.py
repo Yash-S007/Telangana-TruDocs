@@ -94,3 +94,27 @@ def test_client_ip_trusts_only_the_proxys_entries(monkeypatch):
     assert middleware.client_ip(scope) == "203.0.113.7"
     monkeypatch.setenv("TRUST_PROXY_HOPS", "5")  # fewer entries than hops: misconfigured, don't trust the header
     assert middleware.client_ip(scope) == "10.0.0.1"
+
+
+def test_big_or_unsized_api_requests_are_refused_before_reading(monkeypatch):
+    app = FastAPI()
+    app.add_middleware(middleware.BodyLimit)
+    read = []
+
+    @app.post("/api/sample/search")
+    def search(body: dict):
+        read.append(len(str(body)))
+        return {"ok": True}
+    client = TestClient(app)
+    assert client.post("/api/sample/search", json={"ptin": "1113999001"}).status_code == 200
+    r = client.post("/api/sample/search", content=b'{"x": "' + b"9" * 70_000 + b'"}', headers={"content-type": "application/json"})
+    assert r.status_code == 413 and r.json() == {"detail": middleware.TOO_BIG}
+    r = client.post("/api/sample/search", content=(b"{}" for _ in range(1)), headers={"content-type": "application/json"})
+    assert r.status_code == 413  # chunked, no Content-Length: size unknown
+    assert read == [len(str({"ptin": "1113999001"}))]  # only the normal one was read
+
+
+def test_the_app_wires_the_guards_in_order():
+    from backend.main import app
+    order = [m.cls for m in app.user_middleware]  # outermost first
+    assert order.index(middleware.AccessLog) < order.index(middleware.BodyLimit) < order.index(middleware.PerPersonLimit)

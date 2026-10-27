@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.core.middleware import AccessLog, PerPersonLimit
+from backend.core.middleware import AccessLog, BodyLimit, PerPersonLimit
 from backend.routers import adangal, bpass, cdma_tax, ghmc, health, hydra_ftl, market_value, pattadar_passbook, prohibited_lands, rera, survey_map, village_map
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Telangana TruDocs API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(PerPersonLimit)
+app.add_middleware(BodyLimit)
 app.add_middleware(AccessLog)  # added last = runs first, so it also logs the limit's 429s
 
 # CORS — always allow localhost dev server; add any production origins from env.
