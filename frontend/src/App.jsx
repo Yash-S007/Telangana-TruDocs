@@ -6,6 +6,7 @@ import { LegacyTool } from './legacy/LegacyTools.jsx'
 import MarketValueView from './views/MarketValue/MarketValueView.jsx'
 import LandDetailsView from './views/LandDetails/LandDetailsView.jsx'
 import AdangalView from './views/Adangal/AdangalView.jsx'
+import ProhibitedLandsView from './views/ProhibitedLands/ProhibitedLandsView.jsx'
 import { MAIN_TOOL, TOOLS } from './tools.js'
 
 // Each tool's screen, by id. A tool not listed yet still shows its old form (LegacyTool).
@@ -13,6 +14,7 @@ const VIEWS = {
   'market-value': MarketValueView,
   'pattadar-passbook': LandDetailsView,
   adangal: AdangalView,
+  'prohibited-lands': ProhibitedLandsView,
 }
 
 function ToolView({ id }) {

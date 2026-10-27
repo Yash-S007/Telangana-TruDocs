@@ -212,3 +212,69 @@
   font-weight: 600;
 }
 
+/* A wide result (Prohibited Lands' 10-column survey list) scrolls inside its card instead of
+   stretching the section's grid, which pushed the heading off the left of the screen. */
+@media (min-width: 768px) {
+  .tool-section .page > * {
+    min-width: 0;
+  }
+}
+
+/* small text inside result cards */
+.result-heading {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.result-note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.result-loading {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.inline-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+
+.cell-muted {
+  color: var(--text-faint);
+}
+
+/* the shell's table button, used as a link to an official PDF */
+a.table-action-btn {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.survey-list .result-filter {
+  width: 100%;
+  max-width: 360px;
+  height: 40px;
+}
+
+@media (max-width: 767px) {
+  .survey-list .result-filter {
+    max-width: none;
+    font-size: 16px;
+  }
+}

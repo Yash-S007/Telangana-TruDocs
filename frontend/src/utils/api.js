@@ -123,3 +123,19 @@ export const loadAdangalSurveys = (villageId, opts) =>
 
 export const searchAdangal = (body, opts) => postJson('/api/adangal/search', body, opts)
 
+// ── Prohibited Lands (IGRS Section 22A) ──────────────────────────────────────
+
+export const loadProhibitedSros = (divisionId, opts) =>
+  getJson(`/api/prohibited-lands/hyderabad/sros?${new URLSearchParams({ division_id: divisionId })}`, opts)
+
+export const loadProhibitedCategories = (location, opts) => postJson('/api/prohibited-lands/categories', location, opts)
+
+export const loadProhibitedSurveyList = (location, kind, opts) =>
+  postJson('/api/prohibited-lands/survey-list', { ...location, kind }, opts)
+
+export const prohibitedPdfUrl = (location, kind, formtype) =>
+  `/api/prohibited-lands/pdf?${new URLSearchParams({ ...location, kind, formtype })}`
+
+export const prohibitedOrderUrl = (orderId, flag) =>
+  `/api/prohibited-lands/order?${new URLSearchParams({ order_id: orderId, flag })}`
+
