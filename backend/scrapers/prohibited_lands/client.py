@@ -59,12 +59,13 @@ _LOCKS = [threading.Lock() for _ in range(32)]
 def _lock(key: tuple) -> threading.Lock:
     return _LOCKS[hash(key) % len(_LOCKS)]
 
-# Checked before anything reaches the portal.
-_DISTRICT_RE = re.compile(r"\d{1,3}_\d{1,2}")
-_CODE_RE = re.compile(r"\d{1,10}")
-_SRO_RE = re.compile(r"\d{0,6}")
-_FORMTYPE_RE = re.compile(r"\d")
-_ORDER_ID_RE = re.compile(r"\d{6,25}")
+# Checked before anything reaches the portal. [0-9], not \d: \d also matches Telugu and
+# other non-ASCII digits.
+_DISTRICT_RE = re.compile(r"[0-9]{1,3}_[0-9]{1,2}")
+_CODE_RE = re.compile(r"[0-9]{1,10}")
+_SRO_RE = re.compile(r"[0-9]{0,6}")
+_FORMTYPE_RE = re.compile(r"[0-9]")
+_ORDER_ID_RE = re.compile(r"[0-9]{6,25}")
 _ORDER_FLAG_RE = re.compile(r"[A-Z]{1,4}")
 
 

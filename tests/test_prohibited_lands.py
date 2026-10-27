@@ -135,6 +135,10 @@ def test_inputs_are_checked_before_the_portal():
     _raises(BAD_INPUT, client.fetch_order_pdf, "../etc", "HU")
     _raises(BAD_INPUT, client.fetch_order_pdf, "250801162423216", "hu")
     _raises(BAD_INPUT, client.fetch_hyderabad_sros, "1600001'")
+    # Telugu and full-width digits are not 0-9
+    _raises(BAD_INPUT, client.fetch_categories, district_id="15_1", mandal_id="౦౭", village_id="1516004")
+    _raises(BAD_INPUT, client.fetch_categories, district_id="15_1", mandal_id="07", village_id="１５１６００４")
+    _raises(BAD_INPUT, client.fetch_order_pdf, "౨౫౦౮౦౧౧౬౨౪౨౩", "HU")
 
 
 def _app():
