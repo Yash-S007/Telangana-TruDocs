@@ -1,6 +1,6 @@
 anyio==4.15.1
 beautifulsoup4==4.15.0
-certifi==2026.7.22
+certifi==2026.10.23
 ddddocr==1.6.1
 fastapi==0.141.1
 h11==0.16.0
@@ -11,7 +11,7 @@ lxml==6.1.3
 numpy==2.5.3
 onnxruntime==1.30.0
 opencv-python==5.0.0.93
-pillow==12.3.0
+pillow==13.0.0
 pycryptodome==3.23.0
 pydantic==2.13.5
 pydantic_core==2.46.5
