@@ -1,9 +1,7 @@
-from html import escape
-
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
 from backend.core.hierarchy import search_prohibited_lands_villages
 from backend.core.tool_threads import ToolThreads
@@ -15,25 +13,8 @@ _threads = ToolThreads()  # this tool waits on its own threads, not the whole si
 _STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, pl_client.NOT_PUBLISHED: 404}
 
 
-def _status(exc: PortalError) -> int:
-    return _STATUS.get(exc.user_message, 502)
-
-
 def _http_error(exc: PortalError) -> HTTPException:
-    return HTTPException(status_code=_status(exc), detail=exc.user_message)
-
-
-def _pdf(content: bytes, filename: str) -> Response:
-    return Response(content, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{filename}"'})
-
-
-def _pdf_error_page(exc: PortalError) -> HTMLResponse:
-    # PDFs open in a new tab, so a failure has to be a readable page, not JSON.
-    return HTMLResponse(
-        "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
-        f"<title>TruDocs Telangana</title><p style='font:16px sans-serif;padding:24px'>{escape(exc.user_message)}</p>",
-        status_code=_status(exc),
-    )
+    return HTTPException(status_code=_STATUS.get(exc.user_message, 502), detail=exc.user_message)
 
 
 @router.get("/villages/search")
@@ -79,22 +60,23 @@ def survey_list(req: SurveyListRequest):
         raise _http_error(exc)
 
 
+# The official PDFs load into the page's preview, so errors are JSON like every other route.
 @router.get("/pdf")
 @_threads.route
 def category_pdf(district_id: str, mandal_id: str, village_id: str, kind: str, formtype: str, sro_code: str = ""):
     try:
-        return _pdf(*pl_client.fetch_category_pdf(
+        return pdf.response(*pl_client.fetch_category_pdf(
             district_id=district_id, mandal_id=mandal_id, village_id=village_id,
             sro_code=sro_code, kind=kind, formtype=formtype,
         ))
     except PortalError as exc:
-        return _pdf_error_page(exc)
+        raise _http_error(exc)
 
 
 @router.get("/order")
 @_threads.route
 def order_pdf(order_id: str, flag: str):
     try:
-        return _pdf(*pl_client.fetch_order_pdf(order_id, flag))
+        return pdf.response(*pl_client.fetch_order_pdf(order_id, flag))
     except PortalError as exc:
-        return _pdf_error_page(exc)
+        raise _http_error(exc)

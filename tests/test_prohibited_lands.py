@@ -156,20 +156,25 @@ def test_json_routes_map_errors(monkeypatch, message, status):
     assert resp.json()["detail"] == message
 
 
-def test_pdf_route_streams_pdf_or_shows_a_readable_page(monkeypatch):
+def test_pdf_routes_stream_the_pdf_or_a_json_error(monkeypatch):
+    # The official PDFs load into the page's preview, which shows the error's message.
     query = "district_id=15_1&mandal_id=07&village_id=1516004&kind=AGRI&formtype=1"
     monkeypatch.setattr(client, "fetch_category_pdf", lambda **_: (b"%PDF-1.4 x", "22A-AGRI-1-1516004.pdf"))
+    monkeypatch.setattr(client, "fetch_order_pdf", lambda *_: (b"%PDF-1.4 y", "22A-order-1234567.pdf"))
     ok = _app().get(f"/api/prohibited-lands/pdf?{query}")
     assert ok.status_code == 200 and ok.headers["content-type"] == "application/pdf"
     assert ok.headers["content-disposition"] == 'inline; filename="22A-AGRI-1-1516004.pdf"'
+    ok = _app().get("/api/prohibited-lands/order?order_id=1234567&flag=G")
+    assert ok.status_code == 200 and ok.content == b"%PDF-1.4 y"
+    assert ok.headers["content-disposition"] == 'inline; filename="22A-order-1234567.pdf"'
 
-    def fail(**_):
+    def fail(*_a, **_k):
         raise PortalError(client.NOT_PUBLISHED)
 
     monkeypatch.setattr(client, "fetch_category_pdf", fail)
-    bad = _app().get(f"/api/prohibited-lands/pdf?{query}")
-    assert bad.status_code == 404 and bad.headers["content-type"].startswith("text/html")
-    assert "under review" in bad.text
+    monkeypatch.setattr(client, "fetch_order_pdf", fail)
+    for bad in (_app().get(f"/api/prohibited-lands/pdf?{query}"), _app().get("/api/prohibited-lands/order?order_id=1234567&flag=G")):
+        assert bad.status_code == 404 and bad.json() == {"detail": client.NOT_PUBLISHED}
 
 
 def test_identical_searches_at_once_hit_the_portal_once(monkeypatch):

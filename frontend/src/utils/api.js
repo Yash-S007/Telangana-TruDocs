@@ -144,16 +144,33 @@ export const adangalPdf = (body, opts) => postPdf('/api/adangal/pdf', body, opts
 export const loadProhibitedSros = (divisionId, opts) =>
   getJson(`/api/prohibited-lands/hyderabad/sros?${new URLSearchParams({ division_id: divisionId })}`, opts)
 
-export const loadProhibitedCategories = (location, opts) => postJson('/api/prohibited-lands/categories', location, opts)
-
 export const loadProhibitedSurveyList = (location, kind, opts) =>
   postJson('/api/prohibited-lands/survey-list', { ...location, kind }, opts)
 
-export const prohibitedPdfUrl = (location, kind, formtype) =>
+export const prohibitedPdfPath = (location, kind, formtype) =>
   `/api/prohibited-lands/pdf?${new URLSearchParams({ ...location, kind, formtype })}`
 
-export const prohibitedOrderUrl = (orderId, flag) =>
+export const prohibitedOrderPath = (orderId, flag) =>
   `/api/prohibited-lands/order?${new URLSearchParams({ order_id: orderId, flag })}`
+
+// The place's 22-A lists and the first one that's online, so the result opens with its preview.
+// That PDF failing (the portal sometimes can't send one) still shows the lists.
+export async function lookupProhibited(location, opts) {
+  const data = await postJson('/api/prohibited-lands/categories', location, opts)
+  const kind = Object.keys(data.categories || {}).find((k) => data.categories[k].some((c) => c.available))
+  const first = kind && data.categories[kind].find((c) => c.available)
+  let doc = null
+  let docError = ''
+  if (first) {
+    try {
+      doc = { key: `${kind}-${first.formtype}`, ...(await getPdf(prohibitedPdfPath(location, kind, first.formtype), opts)) }
+    } catch (err) {
+      if (err.name === 'AbortError') throw err
+      docError = err.message
+    }
+  }
+  return { ...data, doc, docError }
+}
 
 // ── Survey Map and Village Map (TGRAC village maps) ──────────────────────────
 

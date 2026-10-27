@@ -3,8 +3,9 @@ import VillageSearch from '../../components/common/VillageSearch.jsx'
 import SelectLoading from '../../components/common/SelectLoading.jsx'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
 import LoaderModal from '../../components/common/LoaderModal.jsx'
+import DocumentResult from '../../components/common/DocumentResult.jsx'
 import {
-  loadProhibitedCategories, loadProhibitedSros, loadProhibitedSurveyList, prohibitedOrderUrl, prohibitedPdfUrl,
+  loadProhibitedSros, loadProhibitedSurveyList, lookupProhibited, prohibitedOrderPath, prohibitedPdfPath,
 } from '../../utils/api.js'
 import { useRequest } from '../../utils/useRequest.js'
 
@@ -14,13 +15,13 @@ const SURVEY_ROWS_SHOWN = 200
 // "166" + "3" → "166/3". The portal writes "-" or "" for an empty part.
 const joinNo = (a, b) => [a, b].filter((x) => x && x !== '-').join('/') || '-'
 
-// One row per 22-A(1) category, one column per land kind, each linking the official PDF.
-function Categories({ location, place, categories }) {
+// One row per 22-A(1) category, one column per land kind, each showing the official PDF above.
+function Categories({ location, place, categories, button }) {
   const kinds = Object.keys(categories)
   const labels = categories[kinds[0]].map((c) => c.label)
   return (
     <div className="card result-card">
-      <StatusMessage kind="success" message={`Section 22-A lists for ${place}`} />
+      <h3 className="result-heading">Section 22-A lists for {place}</h3>
       <div className="result-table-wrapper">
         <table className="result-table result-table-compact stack-on-mobile">
           <thead>
@@ -37,9 +38,7 @@ function Categories({ location, place, categories }) {
                   const c = categories[k].find((x) => x.label === label)
                   return (
                     <td key={k} data-label={KIND_LABELS[k]}>
-                      {c?.available
-                        ? <a className="table-action-btn" href={prohibitedPdfUrl(location, k, c.formtype)} target="_blank" rel="noopener noreferrer">View PDF ↗</a>
-                        : <span className="cell-muted">Not online</span>}
+                      {button({ key: `${k}-${c?.formtype}`, path: c?.available ? prohibitedPdfPath(location, k, c.formtype) : null, button: 'Show PDF' })}
                     </td>
                   )
                 })}
@@ -56,8 +55,8 @@ function Categories({ location, place, categories }) {
 }
 
 // The survey-wise list behind "Court cases & Others". Like the official page, it loads every row
-// once and filters in the browser; big areas can take a while.
-function SurveyList({ location, kind }) {
+// once and filters in the browser; big areas can take a while. Each order shows in the preview.
+function SurveyList({ location, kind, button }) {
   const [state, setState] = useState({ data: null, error: '' })
   const [filter, setFilter] = useState('')
 
@@ -127,10 +126,9 @@ function SurveyList({ location, kind }) {
                     <td data-label="Reason">{r.reason}</td>
                     <td data-label="Order">
                       <span>
-                        {r.order_id
-                          ? <a href={prohibitedOrderUrl(r.order_id, r.order_flag)} target="_blank" rel="noopener noreferrer">{r.order_no} ↗</a>
-                          : r.order_no}
+                        {r.order_no}
                         {r.order_date && <><br />{r.order_date}</>}
+                        {r.order_id && <><br />{button({ key: `order-${r.order_id}`, path: prohibitedOrderPath(r.order_id, r.order_flag), button: 'Show order' })}</>}
                       </span>
                     </td>
                     <td data-label="Volume / Page">{r.volume_page}</td>
@@ -180,7 +178,7 @@ export default function ProhibitedLandsView() {
       sro_code: isHyderabad ? sroCode : '',
     }
     const place = `${village.village}, ${village.mandal}`
-    request.run(async (signal) => ({ location, place, ...(await loadProhibitedCategories(location, { signal })) }))
+    request.run(async (signal) => ({ location, place, ...(await lookupProhibited(location, { signal })) }))
   }
 
   return (
@@ -223,10 +221,17 @@ export default function ProhibitedLandsView() {
         </form>
       </div>
 
-      {result?.categories && <Categories location={result.location} place={result.place} categories={result.categories} />}
-      {result?.categories && Object.keys(result.categories).map((k) => (
-        <SurveyList key={k} location={result.location} kind={k} />
-      ))}
+      {result?.categories && (
+        <DocumentResult key={new URLSearchParams(result.location).toString()} first={result.doc} firstError={result.docError}
+          loadingText="Getting the official PDF from IGRS…" emptyText="None of the 22-A lists for this place is online.">
+          {(button) => (
+            <>
+              <Categories location={result.location} place={result.place} categories={result.categories} button={button} />
+              {Object.keys(result.categories).map((k) => <SurveyList key={k} location={result.location} kind={k} button={button} />)}
+            </>
+          )}
+        </DocumentResult>
+      )}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Checking IGRS for prohibited lands…" />
     </div>

@@ -266,6 +266,15 @@
   color: var(--text-faint);
 }
 
+/* under a long PDF's preview, which draws its first pages only */
+.pdf-more-pages {
+  margin: 0;
+  padding: 4px 0;
+  font-size: 13px;
+  color: #e8eae6;
+  text-align: center;
+}
+
 /* the shell's table button, used as a link to an official PDF */
 a.table-action-btn {
   display: inline-block;

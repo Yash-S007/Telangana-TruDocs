@@ -6,13 +6,14 @@ import { downloadBlob } from '../../utils/pdf.js'
 
 // Like the Karnataka EC tools: "Found! <file>", Download PDF and the PDF preview, then a card with
 // the result's details and its other official documents, each of which switches the preview.
-//   first:    the document fetched with the result, { key, blob, filename }, or null
-//   docs:     [{ key, label, meta?, path?, button?, loadingText? }] (no path = not online)
-//   children: (button) => the tool's own lists, where button(doc) shows that document here
-export default function DocumentResult({ first, docs = [], title, facts = [], note, loadingText, emptyText, children }) {
+//   first:      the document fetched with the result, { key, blob, filename }, or null
+//   firstError: why that document couldn't be fetched, if it couldn't
+//   docs:       [{ key, label, meta?, path?, button?, loadingText? }] (no path = not online)
+//   children:   (button) => the tool's own lists, where button(doc) shows that document here
+export default function DocumentResult({ first, firstError = '', docs = [], title, facts = [], note, loadingText, emptyText, children }) {
   const [doc, setDoc] = useState(first)
   const [loading, setLoading] = useState(null)  // the document being fetched
-  const [error, setError] = useState('')
+  const [error, setError] = useState(firstError)
   const generation = useRef(0)
   const controller = useRef(null)
 
