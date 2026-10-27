@@ -83,7 +83,9 @@ Tests (parsers, validation, error mapping and single-flight — no network, synt
 .venv/bin/python -m pytest tests
 ```
 
-Load tests (server running) fire N searches at the same moment at the live portals. Market value and prohibited
+Load tests (server running) fire N searches at the same moment at the live portals. They all come from one
+machine, which counts as one person (30 searches a minute), so start the server for them with a higher limit:
+`SEARCHES_PER_MINUTE=1000 .venv/bin/uvicorn backend.main:app`. Market value and prohibited
 lands throttle themselves to 2 portal requests a second and cache repeats for 6 hours; land details solves the
 captcha for each search, and identical searches share one flow; survey map caches each village and sends
 at most 2 searches to the government map server at once; village map shares survey map's cache and builds each PDF once (the last 8 are kept); RERA solves its captcha per search and caches results for 6 hours; CDMA tax looks up PTINs from no town (`--ptin` for one you may look up, which also downloads its first receipt); TG-bPASS looks up made-up file numbers (`--file` for one you may look up, which also downloads its first letter); Hydra FTL opens different lakes' FTL maps (public map data), and `--same` the same lake:

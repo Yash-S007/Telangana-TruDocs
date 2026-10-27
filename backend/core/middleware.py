@@ -42,7 +42,7 @@ class AccessLog:
                      (time.perf_counter() - start) * 1000)
 
 
-SEARCHES_PER_MINUTE = 30
+SEARCHES_PER_MINUTE = int(os.environ.get("SEARCHES_PER_MINUTE", "30"))  # load tests from one machine raise it
 TOO_MANY = "Too many searches right now. Please wait a minute and try again."
 _DOCUMENTS = ("/pdf", "/document", "/certificate", "/receipt", "/order", "/map/")
 
