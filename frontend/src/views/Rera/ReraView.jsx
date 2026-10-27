@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
 import LoaderModal from '../../components/common/LoaderModal.jsx'
-import { reraCertificateUrl, searchRera } from '../../utils/api.js'
+import DocumentResult from '../../components/common/DocumentResult.jsx'
+import { reraCertificatePath, searchRera } from '../../utils/api.js'
 import { useRequest } from '../../utils/useRequest.js'
 
 const CERTIFICATE_LABELS = {
@@ -10,34 +11,35 @@ const CERTIFICATE_LABELS = {
   'special-extension': '4-month extension',
 }
 
+// The projects found, each certificate showing in the preview above when picked (like CDMA's list).
 function ReraResults({ result }) {
   const { total, shown, projects } = result
   return (
-    <div className="card result-card">
-      <StatusMessage kind="success" message={shown < total
-        ? `Showing ${shown} of ${total} projects. Add more words to narrow it down.`
-        : `${total} project${total === 1 ? '' : 's'} found`} />
-      <ul className="doc-list">
-        {projects.map((p, i) => (
-          <li className="doc-item doc-item-stacked" key={i}>
-            <div className="doc-text">
-              <span className="doc-label">{p.project}</span>
-              <span className="doc-meta">{p.promoter} · updated {p.last_modified}</span>
-            </div>
-            <div className="doc-actions">
-              {p.certificates.map((c) => (
-                <a key={c.kind} className="table-action-btn" href={reraCertificateUrl(c.kind, c.token)} target="_blank" rel="noopener noreferrer">
-                  {CERTIFICATE_LABELS[c.kind]}&nbsp;↗
-                </a>
-              ))}
-              {p.details_url && (
-                <a className="table-action-btn secondary" href={p.details_url} target="_blank" rel="noopener noreferrer">Project details&nbsp;↗</a>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <DocumentResult first={null} emptyText="Pick a certificate below to see it here." loadingText="Getting the certificate from TG-RERA…">
+      {(button) => (
+        <div className="card result-card">
+          <StatusMessage kind="success" message={shown < total
+            ? `Showing ${shown} of ${total} projects. Add more words to narrow it down.`
+            : `${total} project${total === 1 ? '' : 's'} found`} />
+          <ul className="doc-list">
+            {projects.map((p, i) => (
+              <li className="doc-item doc-item-stacked" key={i}>
+                <div className="doc-text">
+                  <span className="doc-label">{p.project}</span>
+                  <span className="doc-meta">{p.promoter} · updated {p.last_modified}</span>
+                </div>
+                <div className="doc-actions">
+                  {p.certificates.map((c) => button({ key: `${i}-${c.kind}`, path: reraCertificatePath(c.kind, c.token), button: CERTIFICATE_LABELS[c.kind] }))}
+                  {p.details_url && (
+                    <a className="table-action-btn secondary" href={p.details_url} target="_blank" rel="noopener noreferrer">Project details&nbsp;↗</a>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </DocumentResult>
   )
 }
 

@@ -204,7 +204,7 @@ def test_the_bundled_intermediate_certificate_is_trusted():
 
 
 @pytest.mark.parametrize("message, status", [(BAD_INPUT, 400), (NOT_FOUND, 404), (CAPTCHA_FAILED, 503), (PORTAL_DOWN, 502)])
-def test_routes_map_errors_and_pdf_errors_are_readable_pages(monkeypatch, message, status):
+def test_routes_map_errors_as_plain_messages(monkeypatch, message, status):
     def fail(*_a, **_k):
         raise PortalError(message)
 
@@ -213,8 +213,8 @@ def test_routes_map_errors_and_pdf_errors_are_readable_pages(monkeypatch, messag
     c = _app()
     r = c.post("/api/rera/search", json={"project_name": "Sample"})
     assert r.status_code == status and r.json()["detail"] == message
-    r = c.get("/api/rera/certificate", params={"kind": "registration", "token": token()})
-    assert r.status_code == status and r.headers["content-type"].startswith("text/html") and "<p" in r.text
+    r = c.get("/api/rera/certificate", params={"kind": "registration", "token": token()})  # shown in the page's preview
+    assert r.status_code == status and r.json()["detail"] == message
 
 
 def test_certificate_route_serves_the_pdf_inline(monkeypatch):

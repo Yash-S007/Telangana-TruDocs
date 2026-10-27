@@ -247,4 +247,4 @@ export async function lookupBpass(fileNo, opts) {
 
 export const searchRera = (fields, opts) => postJson('/api/rera/search', fields, opts)
 
-export const reraCertificateUrl = (kind, token) => `/api/rera/certificate?${new URLSearchParams({ kind, token })}`
+export const reraCertificatePath = (kind, token) => `/api/rera/certificate?${new URLSearchParams({ kind, token })}`

@@ -39,11 +39,11 @@ export default function DocumentResult({ first, firstError = '', docs = [], titl
   }
 
   const button = (item) => (item.path ? (
-    <button type="button" className="table-action-btn" disabled={Boolean(loading) || doc?.key === item.key} onClick={() => show(item)}>
+    <button key={item.key} type="button" className="table-action-btn" disabled={Boolean(loading) || doc?.key === item.key} onClick={() => show(item)}>
       {loading?.key === item.key ? <><span className="inline-spinner" />Loading…</> : doc?.key === item.key ? 'Showing' : item.button || 'Show'}
     </button>
   ) : (
-    <span className="cell-muted">Not online</span>
+    <span key={item.key} className="cell-muted">Not online</span>
   ))
 
   return (
