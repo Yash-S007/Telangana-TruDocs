@@ -145,3 +145,7 @@ export const loadSurveyMapSurveys = (dmv, opts) =>
   getJson(`/api/survey-map/survey-options/${encodeURIComponent(dmv)}`, opts)
 
 export const loadSurveyParcel = (dmv, surveyNo, opts) => postJson('/api/survey-map/parcel', { dmv, survey_no: surveyNo }, opts)
+
+export const loadVillageMap = (dmv, opts) => getJson(`/api/village-map/map/${encodeURIComponent(dmv)}`, opts)
+
+export const villageMapPdfUrl = (dmv) => `/api/village-map/pdf/${encodeURIComponent(dmv)}`

@@ -423,3 +423,96 @@ a.table-action-btn {
     padding-right: 10px;
   }
 }
+
+/* ── Village Map: a whole village, zoomable ────────────────── */
+.village-map {
+  position: relative;
+  margin: 14px 0 0;
+  background: #2b2f2c;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.village-map-scroll {
+  max-height: 70vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.village-map svg {
+  display: block;
+  height: auto;
+}
+
+.village-map .lot {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.village-map .lot.road {
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-dasharray: 4 3;
+}
+
+.village-map text {
+  fill: #fff;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke; /* a dark edge under the letters, so they read on any terrain */
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-linejoin: round;
+}
+
+.village-map figcaption {
+  padding: 4px 10px;
+  font-size: 10px;
+  color: #d9d9d4;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.zoom-controls button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zoom-controls button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.zoom-controls span {
+  min-width: 30px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* the shell's download button, used as a link to a PDF */
+a.download-btn {
+  display: inline-flex;
+  text-decoration: none;
+}
