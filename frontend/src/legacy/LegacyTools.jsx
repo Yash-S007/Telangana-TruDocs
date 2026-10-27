@@ -188,50 +188,7 @@ function Field({ label, required, hint, children }) {
   )
 }
 
-// Select with inline loading spinner — used while survey/khata options are
-// being fetched from the government portal.
-function SelectLoading({ loading, children, ...props }) {
-  return (
-    <div className="select-wrap">
-      <select {...props} disabled={props.disabled || loading}>{children}</select>
-      {loading && <span className="select-spinner" />}
-    </div>
-  )
-}
-
 // ---------- document forms ----------
-function PropertyTaxForm() {
-  const { post, get } = useApi()
-  const { result, error, loading, run } = useFormState()
-  const [circles, setCircles] = useState([])
-  const [circle, setCircle] = useState('')
-  const [ptin, setPtin] = useState('')
-
-  useEffect(() => {
-    get('/api/ghmc/circles').then(setCircles).catch(() => {})
-  }, [])
-
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); run(() => post('/api/ghmc/property-tax', { circle, ptin })) }}>
-      <Field label="Circle" required>
-        <select value={circle} onChange={(e) => setCircle(e.target.value)} required>
-          <option value="">Select Circle</option>
-          {circles.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-      </Field>
-      <Field label="PTIN Number" required hint="Property Tax Identification Number">
-        <input placeholder="e.g. 1010133899" value={ptin} onChange={(e) => setPtin(e.target.value)} required />
-      </Field>
-      <button type="submit" disabled={loading} className={loading ? 'btn-loading' : ''}>
-        {loading ? <><span className="btn-spinner" /> Checking…</> : 'Check Tax Status'}
-      </button>
-      <ResultBox error={error} result={result} />
-    </form>
-  )
-}
-
 const CERTIFICATE_LABELS = {
   registration: 'Registration certificate',
   extension: 'Extension certificate',
@@ -675,15 +632,6 @@ function BpassForm() {
 
 // ---------- page structure ----------
 const DOCUMENT_TYPES = [
-  {
-    id: 'ghmc-property-tax',
-    icon: 'ti ti-receipt',
-    navLabel: 'GHMC Property Tax',
-    tag: 'Municipality',
-    heading: 'GHMC Property Tax',
-    description: 'Search property tax records by PTIN number within a GHMC circle.',
-    Form: PropertyTaxForm,
-  },
   {
     id: 'cdma-tax-receipt',
     icon: 'ti ti-receipt-2',

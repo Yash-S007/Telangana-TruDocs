@@ -176,3 +176,7 @@ export async function lookupLake(key, opts) {
 
 export const searchGhmcMutation = (assessmentNumber, opts) =>
   postJson('/api/ghmc/mutation', { assessment_number: assessmentNumber }, opts)
+
+export const loadGhmcCircles = (opts) => getJson('/api/ghmc/circles', opts)
+
+export const searchGhmcPropertyTax = (circle, ptin, opts) => postJson('/api/ghmc/property-tax', { circle, ptin }, opts)

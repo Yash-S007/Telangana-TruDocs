@@ -11,6 +11,7 @@ import SurveyMapView from './views/SurveyMap/SurveyMapView.jsx'
 import VillageMapView from './views/VillageMap/VillageMapView.jsx'
 import HydraFtlView from './views/HydraFtl/HydraFtlView.jsx'
 import GhmcMutationView from './views/GhmcMutation/GhmcMutationView.jsx'
+import GhmcPropertyTaxView from './views/GhmcPropertyTax/GhmcPropertyTaxView.jsx'
 import { MAIN_TOOL, TOOLS } from './tools.js'
 
 // Each tool's screen, by id. A tool not listed yet still shows its old form (LegacyTool).
@@ -23,6 +24,7 @@ const VIEWS = {
   'village-map': VillageMapView,
   'hydra-ftl-map': HydraFtlView,
   'ghmc-mutation': GhmcMutationView,
+  'ghmc-property-tax': GhmcPropertyTaxView,
 }
 
 function ToolView({ id }) {
