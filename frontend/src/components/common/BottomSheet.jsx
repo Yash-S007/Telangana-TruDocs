@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useEffectEvent } from 'react'
 
 export default function BottomSheet({ open, onClose, title, children }) {
   useEffect(() => {
@@ -8,6 +8,18 @@ export default function BottomSheet({ open, onClose, title, children }) {
       document.body.style.overflow = ''
     }
     return () => { document.body.style.overflow = '' }
+  }, [open])
+
+  // The phone's Back button (or a swipe back) closes the sheet instead of leaving the site.
+  const onBack = useEffectEvent(() => onClose())
+  useEffect(() => {
+    if (!open) return
+    history.pushState({ sheet: true }, '')
+    window.addEventListener('popstate', onBack)
+    return () => {
+      window.removeEventListener('popstate', onBack)
+      if (history.state?.sheet) history.back()  // closed with × or a tap outside: drop our history entry
+    }
   }, [open])
 
   useEffect(() => {
