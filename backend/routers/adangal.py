@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.core import pdf
-from backend.core.errors import PortalError
+from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
 from backend.core.hierarchy import search_adangal_villages
 from backend.core.tool_threads import ToolThreads
 from backend.scrapers.adangal import client as adangal_client
@@ -10,9 +10,11 @@ from backend.scrapers.adangal import client as adangal_client
 router = APIRouter(prefix="/api/adangal", tags=["adangal"])
 _threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
+
 
 def _http_error(exc: PortalError) -> HTTPException:
-    return HTTPException(status_code=404 if "No record" in exc.user_message else 502, detail=exc.user_message)
+    return HTTPException(status_code=_STATUS.get(exc.user_message, 502), detail=exc.user_message)
 
 
 @router.get("/villages/search")

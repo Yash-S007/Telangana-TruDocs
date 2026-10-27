@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from reportlab import rl_config
 
-from backend.core.errors import NOT_FOUND, PORTAL_DOWN, PortalError
+from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PortalError
 from backend.routers import adangal as adangal_router
 from backend.scrapers.adangal import client
 
@@ -48,7 +48,7 @@ def test_khata_search_and_unknown_village(monkeypatch):
     assert name == "Adangal-khata-77.pdf" and content.startswith(b"%PDF-")
 
 
-@pytest.mark.parametrize("message, status", [(NOT_FOUND, 404), (PORTAL_DOWN, 502)])
+@pytest.mark.parametrize("message, status", [(NOT_FOUND, 404), (BAD_INPUT, 400), (PORTAL_DOWN, 502)])
 def test_pdf_errors_are_json_like_the_search(monkeypatch, message, status):
     def fail(**_):
         raise PortalError(message)
