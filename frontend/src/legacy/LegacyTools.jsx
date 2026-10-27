@@ -359,71 +359,6 @@ function PropertyTaxForm() {
   )
 }
 
-function AdangalForm() {
-  const { post, get } = useApi()
-  const { result, error, loading, run, setError } = useFormState()
-  const [village, setVillage] = useState(null)
-  const [surveyOptions, setSurveyOptions] = useState([])
-  const [surveyNo, setSurveyNo] = useState('')
-  const [surveyLoading, setSurveyLoading] = useState(false)
-
-  async function onVillage(v) {
-    setVillage(v)
-    setSurveyOptions([]); setSurveyNo('')
-    if (v) {
-      setSurveyLoading(true)
-      try { setSurveyOptions(await get(`/api/adangal/survey-options/${v.village_id}`)) }
-      catch {}
-      finally { setSurveyLoading(false) }
-    }
-  }
-
-  function submit(e) {
-    e.preventDefault()
-    if (!village) { setError('Please select a village first.'); return }
-    run(() => post('/api/adangal/search', {
-      district_id: village.district_id,
-      division_id: village.division_id,
-      mandal_id: village.mandal_id,
-      village_id: village.village_id,
-      survey_or_khata_value: surveyNo,
-      option: 'surveyNo',
-    }))
-  }
-
-  return (
-    <form onSubmit={submit}>
-      <Field label="Village / Division" required>
-        <VillageSearch portal="adangal" onSelect={onVillage} />
-      </Field>
-      <Field
-        label="Survey Number"
-        required
-        hint={village && !surveyLoading && surveyOptions.length === 0 ? 'Enter manually' : ''}
-      >
-        {surveyLoading || surveyOptions.length > 0 ? (
-          <SelectLoading loading={surveyLoading} value={surveyNo} onChange={(e) => setSurveyNo(e.target.value)} disabled={!village} required>
-            <option value="">{surveyLoading ? 'Loading surveys…' : 'Select Survey Number'}</option>
-            {surveyOptions.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </SelectLoading>
-        ) : (
-          <input
-            placeholder={village ? 'e.g. 123 or 5A' : 'Select village first'}
-            value={surveyNo}
-            onChange={(e) => setSurveyNo(e.target.value)}
-            disabled={!village}
-            required
-          />
-        )}
-      </Field>
-      <button type="submit" disabled={loading || !village} className={loading ? 'btn-loading' : ''}>
-        {loading ? <><span className="btn-spinner" /> Fetching record…</> : 'Get Adangal'}
-      </button>
-      <ResultBox error={error} result={result} />
-    </form>
-  )
-}
-
 const KIND_LABELS = { AGRI: 'Agriculture', NONAGRI: 'Non-Agriculture' }
 const SURVEY_ROWS_SHOWN = 200
 
@@ -1718,15 +1653,6 @@ const DOCUMENT_TYPES = [
     heading: 'Building Permission (TG‑bPASS)',  // a non-breaking hyphen keeps TG-bPASS on one line
     description: 'The status of a building permission filed on TG-bPASS before December 2025, and its official letters (permit order, letter of approval to start work), by file number.',
     Form: BpassForm,
-  },
-  {
-    id: 'adangal',
-    icon: 'ti ti-map-2',
-    navLabel: 'Adangal (Pahani)',
-    tag: 'Revenue dept',
-    heading: 'Adangal Extract (Pahani)',
-    description: 'Land ownership, cultivation, and usage record for agricultural land by village and survey number.',
-    Form: AdangalForm,
   },
   {
     id: 'prohibited-lands',

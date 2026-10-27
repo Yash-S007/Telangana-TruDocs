@@ -116,3 +116,10 @@ export const searchLandBySurvey = (body, opts) => postJson('/api/pattadar/search
 
 export const searchLandByPassbook = (body, opts) => postJson('/api/pattadar/search-by-passbook', body, opts)
 
+// ── Adangal (Pahani) ─────────────────────────────────────────────────────────
+
+export const loadAdangalSurveys = (villageId, opts) =>
+  getJson(`/api/adangal/survey-options/${encodeURIComponent(villageId)}`, opts)
+
+export const searchAdangal = (body, opts) => postJson('/api/adangal/search', body, opts)
+
