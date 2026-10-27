@@ -139,3 +139,9 @@ export const prohibitedPdfUrl = (location, kind, formtype) =>
 export const prohibitedOrderUrl = (orderId, flag) =>
   `/api/prohibited-lands/order?${new URLSearchParams({ order_id: orderId, flag })}`
 
+// ── Survey Map and Village Map (TGRAC village maps) ──────────────────────────
+
+export const loadSurveyMapSurveys = (dmv, opts) =>
+  getJson(`/api/survey-map/survey-options/${encodeURIComponent(dmv)}`, opts)
+
+export const loadSurveyParcel = (dmv, surveyNo, opts) => postJson('/api/survey-map/parcel', { dmv, survey_no: surveyNo }, opts)
