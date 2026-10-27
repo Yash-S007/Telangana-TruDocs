@@ -171,3 +171,8 @@ export async function lookupLake(key, opts) {
   const first = lake.documents?.[0]
   return { ...lake, doc: first ? { key: first.kind, ...(await getPdf(lakeDocumentPath(lake.key, first.kind), opts)) } : null }
 }
+
+// ── GHMC (Hyderabad) ─────────────────────────────────────────────────────────
+
+export const searchGhmcMutation = (assessmentNumber, opts) =>
+  postJson('/api/ghmc/mutation', { assessment_number: assessmentNumber }, opts)

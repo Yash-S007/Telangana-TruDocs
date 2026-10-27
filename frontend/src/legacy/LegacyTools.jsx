@@ -200,29 +200,6 @@ function SelectLoading({ loading, children, ...props }) {
 }
 
 // ---------- document forms ----------
-function MutationForm() {
-  const { post } = useApi()
-  const { result, error, loading, run } = useFormState()
-  const [assessmentNumber, setAssessmentNumber] = useState('')
-
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); run(() => post('/api/ghmc/mutation', { assessment_number: assessmentNumber })) }}>
-      <Field label="Assessment Number" required hint="e.g. 1010133899">
-        <input
-          placeholder="Enter assessment number"
-          value={assessmentNumber}
-          onChange={(e) => setAssessmentNumber(e.target.value)}
-          required
-        />
-      </Field>
-      <button type="submit" disabled={loading} className={loading ? 'btn-loading' : ''}>
-        {loading ? <><span className="btn-spinner" /> Checking…</> : 'Check Mutation Status'}
-      </button>
-      <ResultBox error={error} result={result} />
-    </form>
-  )
-}
-
 function PropertyTaxForm() {
   const { post, get } = useApi()
   const { result, error, loading, run } = useFormState()
@@ -698,15 +675,6 @@ function BpassForm() {
 
 // ---------- page structure ----------
 const DOCUMENT_TYPES = [
-  {
-    id: 'ghmc-mutation',
-    icon: 'ti ti-home-2',
-    navLabel: 'GHMC Mutation',
-    tag: 'Municipality',
-    heading: 'GHMC Mutation Status',
-    description: 'Check the latest ownership mutation status for a Hyderabad property by assessment number.',
-    Form: MutationForm,
-  },
   {
     id: 'ghmc-property-tax',
     icon: 'ti ti-receipt',
