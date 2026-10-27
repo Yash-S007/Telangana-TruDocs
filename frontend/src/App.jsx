@@ -9,6 +9,7 @@ import AdangalView from './views/Adangal/AdangalView.jsx'
 import ProhibitedLandsView from './views/ProhibitedLands/ProhibitedLandsView.jsx'
 import SurveyMapView from './views/SurveyMap/SurveyMapView.jsx'
 import VillageMapView from './views/VillageMap/VillageMapView.jsx'
+import HydraFtlView from './views/HydraFtl/HydraFtlView.jsx'
 import { MAIN_TOOL, TOOLS } from './tools.js'
 
 // Each tool's screen, by id. A tool not listed yet still shows its old form (LegacyTool).
@@ -19,6 +20,7 @@ const VIEWS = {
   'prohibited-lands': ProhibitedLandsView,
   'survey-map': SurveyMapView,
   'village-map': VillageMapView,
+  'hydra-ftl-map': HydraFtlView,
 }
 
 function ToolView({ id }) {

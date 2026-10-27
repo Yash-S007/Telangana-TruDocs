@@ -516,3 +516,78 @@ a.download-btn {
   display: inline-flex;
   text-decoration: none;
 }
+
+/* ── Lists in result cards: official documents, lakes, water bodies, receipts ── */
+.doc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.doc-item:last-child {
+  border-bottom: none;
+}
+
+.doc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.doc-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.doc-meta {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.doc-item .table-action-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+}
+
+.doc-item .table-action-btn .inline-spinner {
+  width: 12px;
+  height: 12px;
+}
+
+.water-note {
+  margin: 0 0 6px;
+}
+
+.result-card + .result-card,
+.result-card .status-msg + .result-actions {
+  margin-top: 14px;
+}
+
+/* on phones a list item's button goes under its text, full width, easy to tap */
+@media (max-width: 767px) {
+  .doc-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .doc-item .table-action-btn {
+    justify-content: center;
+    min-height: 44px;
+  }
+}

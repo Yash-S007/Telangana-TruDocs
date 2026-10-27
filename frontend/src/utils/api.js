@@ -90,6 +90,13 @@ const postJson = (path, body, { signal } = {}) => send(path, {
   signal,
 }).then((r) => r.json().catch(() => ({})))
 
+// An official PDF for the preview: its bytes and the server's file name.
+export async function getPdf(path, { signal } = {}) {
+  const res = await send(path, { signal })
+  const m = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') || '')
+  return { blob: await res.blob(), filename: m ? m[1] : 'document.pdf' }
+}
+
 // ── Village search (a pre-scraped list per portal, searched on our server) ───
 
 export const searchVillages = (portal, q, opts) =>
@@ -149,3 +156,18 @@ export const loadSurveyParcel = (dmv, surveyNo, opts) => postJson('/api/survey-m
 export const loadVillageMap = (dmv, opts) => getJson(`/api/village-map/map/${encodeURIComponent(dmv)}`, opts)
 
 export const villageMapPdfUrl = (dmv) => `/api/village-map/pdf/${encodeURIComponent(dmv)}`
+
+// ── Hydra FTL Map (HMDA lakes) ───────────────────────────────────────────────
+
+export const loadLakePlaces = (opts) => getJson('/api/hydra-ftl/places', opts)
+
+export const findLakes = (params, opts) => getJson(`/api/hydra-ftl/lakes?${new URLSearchParams(params)}`, opts)
+
+export const lakeDocumentPath = (key, kind) => `/api/hydra-ftl/document?${new URLSearchParams({ key, kind })}`
+
+// A lake and its FTL map together, so the result opens with its preview.
+export async function lookupLake(key, opts) {
+  const lake = await getJson(`/api/hydra-ftl/lake?${new URLSearchParams({ key })}`, opts)
+  const first = lake.documents?.[0]
+  return { ...lake, doc: first ? { key: first.kind, ...(await getPdf(lakeDocumentPath(lake.key, first.kind), opts)) } : null }
+}
