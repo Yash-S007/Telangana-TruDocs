@@ -57,9 +57,10 @@ export default function GhmcPropertyTaxView() {
             <label>PTIN Number <span className="req">*</span><span className="field-hint">Property Tax Identification Number</span></label>
             <input
               type="text"
+              inputMode="numeric"
               placeholder="e.g. 1010133899"
               value={ptin}
-              onChange={(e) => { setPtin(e.target.value); reset() }}
+              onChange={(e) => { setPtin(e.target.value.replace(/\D/g, '').slice(0, 10)); reset() }}
               disabled={busy}
               autoComplete="off"
             />

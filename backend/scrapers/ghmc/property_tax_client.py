@@ -9,8 +9,10 @@ Search modes: PTIN (assessment number), or Owner Name + Circle, or Door
 Number + Circle. Circle list (61) is static/server-rendered — no scrape
 needed, hand-seed from the confirmed page HTML.
 """
+import json
 import re
 from functools import lru_cache
+from pathlib import Path
 
 import httpx
 
@@ -24,6 +26,13 @@ PAGE_PATH = "/Search.aspx"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 _throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minute to this portal
+# Our copy of GHMC's circle list (backend/scripts/scrape_ghmc_circles.py), for when GHMC is down.
+_SAVED_CIRCLES = Path(__file__).resolve().parents[2] / "data" / "ghmc_circles.json"
+_PTIN_RE = re.compile(r"[0-9]{1,10}")  # GHMC's own PTIN box: digits only, at most 10
+_CIRCLE_RE = re.compile(r"[0-9]{1,6}")
+_OWNER_RE = re.compile(r"[A-Za-z .]{3,50}")  # GHMC's owner box takes letters only
+_DOOR_RE = re.compile(r"[A-Za-z0-9 &./-]{3,30}")
+DIGITS_ONLY = "A PTIN has only digits (at most 10), as on the property tax receipt."
 
 
 def _extract_hidden_fields(html: str) -> dict:
@@ -49,24 +58,43 @@ def _fetch_circles_cached() -> list:
     # GHMC's 61 municipal circles are static — never change at runtime, and
     # are the same for every user, so cache rather than re-fetch the whole
     # Search.aspx page on every request just to read this one dropdown.
-    with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=20.0) as client:
+    # A failure or a page without the list raises, so lru_cache never keeps it.
+    with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=10.0) as client:
         _throttle.wait()
-        html = client.get(BASE_URL + PAGE_PATH).text
-    return _parse_circles(html)
+        resp = client.get(BASE_URL + PAGE_PATH)
+        resp.raise_for_status()
+    circles = _parse_circles(resp.text)
+    if not circles:
+        raise PortalError(PORTAL_DOWN, "no circle list on the page")
+    return circles
 
 
 def fetch_circles(html: str = None) -> list:
     """Parse the static circle dropdown. Pass cached HTML, or None to use the
-    cached live fetch."""
+    cached live fetch, or our saved copy while GHMC is down."""
     if html is not None:
         return _parse_circles(html)
-    return _fetch_circles_cached()
+    try:
+        return _fetch_circles_cached()
+    except (PortalError, httpx.HTTPError):
+        return json.loads(_SAVED_CIRCLES.read_text())
+
+
+def _check(value: str, pattern: re.Pattern, message: str) -> str:
+    value = (value or "").strip()
+    if value and not pattern.fullmatch(value):
+        raise PortalError(message, "unexpected characters")
+    return value
 
 
 def fetch_property_tax(*, ptin: str = "", owner_name: str = "", door_no: str = "", circle: str = "") -> dict:
     # Confirmed live: the portal's server-side validation rejects the search
     # with "Please select any circle here" even for a PTIN-only search — circle
     # is mandatory for every search mode on this form, not just owner/door.
+    circle = _check(circle, _CIRCLE_RE, BAD_INPUT)
+    ptin = _check(ptin, _PTIN_RE, DIGITS_ONLY)
+    owner_name = _check(owner_name, _OWNER_RE, BAD_INPUT)
+    door_no = _check(door_no, _DOOR_RE, BAD_INPUT)
     if not circle:
         raise PortalError(BAD_INPUT, "circle is required")
     if not any([ptin, owner_name, door_no]):

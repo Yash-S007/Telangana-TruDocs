@@ -41,9 +41,10 @@ export default function GhmcMutationView() {
             <label>Assessment Number <span className="req">*</span><span className="field-hint">e.g. 1010133899</span></label>
             <input
               type="text"
+              inputMode="numeric"
               placeholder="Enter assessment number"
               value={assessmentNumber}
-              onChange={(e) => { setAssessmentNumber(e.target.value); reset() }}
+              onChange={(e) => { setAssessmentNumber(e.target.value.replace(/\D/g, '').slice(0, 10)); reset() }}
               disabled={busy}
               autoComplete="off"
             />

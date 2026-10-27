@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/ghmc", tags=["ghmc"])
 _mutation_threads = ToolThreads()
 _tax_threads = ToolThreads()
 
-_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, mutation_client.DIGITS_ONLY: 400, property_tax_client.DIGITS_ONLY: 400}
 
 
 def _http_error(exc: PortalError) -> HTTPException:
