@@ -3,8 +3,8 @@ import VillageSearch from '../../components/common/VillageSearch.jsx'
 import SelectLoading from '../../components/common/SelectLoading.jsx'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
 import LoaderModal from '../../components/common/LoaderModal.jsx'
-import RecordResult from '../../components/common/RecordResult.jsx'
-import { loadLandKhatas, loadLandSurveys, searchLandByPassbook, searchLandBySurvey } from '../../utils/api.js'
+import DocumentResult from '../../components/common/DocumentResult.jsx'
+import { landPassbookPdf, landSurveyPdf, loadLandKhatas, loadLandSurveys } from '../../utils/api.js'
 import { useRequest } from '../../utils/useRequest.js'
 
 // The portal's two public search modes. Each is its own sub-form, so switching mode remounts it
@@ -60,7 +60,7 @@ function SurveyFields({ request }) {
     if (!village) { fail('Please select a village first.'); return }
     if (!surveyNo.trim()) { fail('Please choose the survey number.'); return }
     if (!khataId) { fail('Please choose the khata number.'); return }
-    request.run((signal) => searchLandBySurvey({
+    request.run((signal) => landSurveyPdf({
       district_id: village.district_id,
       mandal_id: village.mandal_id,
       village_id: village.village_id,
@@ -118,7 +118,7 @@ function PassbookFields({ request }) {
     e.preventDefault()
     if (!passbookNo.trim()) { fail('Please enter the passbook number.'); return }
     if (!/^\d{4}$/.test(aadhaar)) { fail('Please enter exactly the last 4 digits of the Aadhaar number.'); return }
-    request.run((signal) => searchLandByPassbook({ passbook_no: passbookNo.trim(), aadhaar_last4: aadhaar }, { signal }))
+    request.run((signal) => landPassbookPdf({ passbook_no: passbookNo.trim(), aadhaar_last4: aadhaar }, { signal }))
   }
 
   return (
@@ -193,7 +193,7 @@ export default function LandDetailsView() {
         {mode === 'survey' ? <SurveyFields request={request} /> : <PassbookFields request={request} />}
       </div>
 
-      {result && <RecordResult result={result} />}
+      {result && <DocumentResult key={result.filename} first={result} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Fetching the land record from Bhu Bharati…" />
     </div>

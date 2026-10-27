@@ -4,12 +4,14 @@ No network: the portal is never called, and the fixtures use synthetic data only
 
 Run from the repo root:  python -m pytest tests
 """
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from reportlab import rl_config
 
 from backend.core.errors import BAD_INPUT, CAPTCHA_FAILED, NOT_FOUND, PORTAL_DOWN, PortalError
 from backend.routers import pattadar_passbook as router_mod
@@ -121,10 +123,12 @@ def test_routes_map_errors(monkeypatch, message, status):
     monkeypatch.setattr(client, "fetch_pattadar_by_survey", fail)
     monkeypatch.setattr(client, "fetch_pattadar_by_passbook", fail)
     c = _app()
-    r1 = c.post("/api/pattadar/search", json={"district_id": "5", "mandal_id": "83", "village_id": "507004", "survey_no": "1", "khata_id": "1"})
-    r2 = c.post("/api/pattadar/search-by-passbook", json={"passbook_no": "PPB123", "aadhaar_last4": "1234"})
-    assert r1.status_code == status and r1.json()["detail"] == message
-    assert r2.status_code == status and r2.json()["detail"] == message
+    survey = {"district_id": "5", "mandal_id": "83", "village_id": "507004", "survey_no": "1", "khata_id": "1"}
+    passbook = {"passbook_no": "PPB123", "aadhaar_last4": "1234"}
+    # the PDFs load into the page's preview, so their errors are JSON like the searches'
+    for r in (c.post("/api/pattadar/search", json=survey), c.post("/api/pattadar/search-by-passbook", json=passbook),
+              c.post("/api/pattadar/pdf", json=survey), c.post("/api/pattadar/pdf-by-passbook", json=passbook)):
+        assert r.status_code == status and r.json()["detail"] == message
 
 
 def test_identical_searches_at_once_hit_the_portal_once(monkeypatch):
@@ -200,3 +204,39 @@ def test_dropdown_endpoints_map_errors_instead_of_500(monkeypatch, message, stat
     c = _app()
     assert c.get("/api/pattadar/survey-options/507004").status_code == status
     assert c.get("/api/pattadar/khata-options/507004?survey_no=1").status_code == status
+
+
+def _shown_text(content: bytes) -> bytes:
+    """What the pages write in Helvetica (Telugu, in Hind Guntur, is glyph numbers)."""
+    return b" ".join(re.findall(rb"\(((?:[^()\\]|\\.)*)\) Tj", content))
+
+
+def test_record_pdf_shows_the_fields_and_where(monkeypatch):
+    monkeypatch.setattr(rl_config, "pageCompression", 0)
+    record = client._parse_result(RESULT_HTML.replace("TEST OWNER", "TEST OWNER | టెస్ట్ ఓనర్"))
+    monkeypatch.setattr(client, "fetch_pattadar_by_survey", lambda **_: record)
+    r = _app().post("/api/pattadar/pdf", json={"district_id": "13", "mandal_id": "261", "village_id": "1301023", "survey_no": " 1/2అ ",
+                                               "khata_id": "337"})
+    assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
+    assert r.headers["content-disposition"] == 'inline; filename="Land-details-Ankapoor-survey-1-2.pdf"'
+    text = _shown_text(r.content)
+    for shown in (b"Land Details \\(Bhu Bharati\\)", b"Pattadar / Authorised Person Name", b"Khata Number", b"337",
+                  b"Not Prohibited", b"Total Extent \\(Ac. Gts\\)", b"1.20", b"Only For Information"):
+        assert shown in text, shown
+    assert b"HindGuntur" in r.content  # the survey number and the owner's Telugu name
+
+
+def test_passbook_pdf_leaves_out_the_aadhaar_digits(monkeypatch):
+    monkeypatch.setattr(rl_config, "pageCompression", 0)
+    monkeypatch.setattr(client, "fetch_pattadar_by_passbook", lambda **_: client._parse_result(RESULT_HTML))
+    r = _app().post("/api/pattadar/pdf-by-passbook", json={"passbook_no": "T12345678901", "aadhaar_last4": "9071"})
+    assert r.status_code == 200 and r.headers["content-disposition"] == 'inline; filename="Land-details-passbook-T12345678901.pdf"'
+    text = _shown_text(r.content)
+    assert b"Passbook No. T12345678901" in text and b"TEST OWNER" in text and b"9071" not in text
+
+
+def test_a_reply_without_fields_is_no_record(monkeypatch):
+    monkeypatch.setattr(client, "fetch_pattadar_by_survey", lambda **_: client._parse_result("<html><body></body></html>"))
+    r = _app().post("/api/pattadar/pdf", json={"district_id": "5", "mandal_id": "83", "village_id": "507004", "survey_no": "1",
+                                               "khata_id": "1"})
+    assert r.status_code == 404 and r.json() == {"detail": NOT_FOUND}

@@ -126,9 +126,10 @@ export const loadLandSurveys = (villageId, opts) =>
 export const loadLandKhatas = (villageId, surveyNo, opts) =>
   getJson(`/api/pattadar/khata-options/${encodeURIComponent(villageId)}?${new URLSearchParams({ survey_no: surveyNo })}`, opts)
 
-export const searchLandBySurvey = (body, opts) => postJson('/api/pattadar/search', body, opts)
+// The record as our PDF (the page shows only the PDF).
+export const landSurveyPdf = (body, opts) => postPdf('/api/pattadar/pdf', body, opts)
 
-export const searchLandByPassbook = (body, opts) => postJson('/api/pattadar/search-by-passbook', body, opts)
+export const landPassbookPdf = (body, opts) => postPdf('/api/pattadar/pdf-by-passbook', body, opts)
 
 // ── Adangal (Pahani) ─────────────────────────────────────────────────────────
 

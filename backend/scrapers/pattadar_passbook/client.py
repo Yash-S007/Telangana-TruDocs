@@ -28,9 +28,13 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 import base64
 import threading
+from reportlab.lib.units import mm
+from reportlab.platypus import Spacer
 
+from backend.core import pdf
 from backend.core.captcha import solve as solve_captcha
 from backend.core.errors import BAD_INPUT, CAPTCHA_FAILED, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
+from backend.core.hierarchy import pattadar_village
 from backend.core.rate_limit import RateLimiter
 
 BASE_URL = "https://bhubharati.telangana.gov.in"
@@ -384,3 +388,31 @@ def _parse_result(html: str) -> dict:
         "raw_fields": fields,
         "found": bool(fields),
     }
+
+
+# ---------- a record as a PDF ----------
+# Someone's land record: each PDF is made from its own search and kept nowhere.
+def fetch_survey_pdf(**fields) -> tuple:
+    """(pdf bytes, filename) for a survey + khata search."""
+    record = fetch_pattadar_by_survey(**fields)  # checks the fields
+    survey = fields["survey_no"].strip()
+    village = pattadar_village(fields["village_id"].strip())
+    name = lambda key: village[key].split("|")[0].strip()  # "Ankapoor|అంకాపూర్" → "Ankapoor"
+    place = f" · {name('village')} village, {name('mandal')} mandal, {name('district')} district" if village else ""
+    return _record_pdf(record, f"Survey No. {survey}{place}"), pdf.filename("Land-details", name("village") if village else "", "survey", survey)
+
+
+def fetch_passbook_pdf(passbook_no: str, aadhaar_last4: str) -> tuple:
+    """(pdf bytes, filename) for a passbook search. The Aadhaar digits are not printed."""
+    record = fetch_pattadar_by_passbook(passbook_no=passbook_no, aadhaar_last4=aadhaar_last4)
+    number = passbook_no.strip()
+    return _record_pdf(record, f"Passbook No. {number}"), pdf.filename("Land-details", "passbook", number)
+
+
+def _record_pdf(record: dict, searched: str) -> bytes:
+    if not record["found"]:
+        raise PortalError(NOT_FOUND, "portal reply had no fields")
+    return pdf.build([pdf.para("Land Details (Bhu Bharati)", "title"), pdf.para(searched, "sub"), Spacer(0, 5 * mm),
+                      pdf.fields(record["raw_fields"].items())],
+                     title=f"Land details: {searched}", note="For reference only: not a certified copy of the land record.",
+                     source="Bhu Bharati, the Telangana land records portal (bhubharati.telangana.gov.in)")

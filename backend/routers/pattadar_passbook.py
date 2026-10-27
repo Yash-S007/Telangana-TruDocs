@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, CAPTCHA_FAILED, NOT_FOUND, PortalError
 from backend.core.hierarchy import search_pattadar_villages
 from backend.core.tool_threads import ToolThreads
@@ -76,5 +77,25 @@ def search_by_passbook(req: PassbookRequest):
             passbook_no=req.passbook_no,
             aadhaar_last4=req.aadhaar_last4,
         )
+    except PortalError as exc:
+        raise _http_error(exc)
+
+
+# Our PDF of the record, which the page shows. POST like the searches, so nothing searched is
+# in the access log.
+@router.post("/pdf")
+@_threads.route
+def survey_pdf(req: PattadarRequest):
+    try:
+        return pdf.response(*pattadar_client.fetch_survey_pdf(**req.model_dump()))
+    except PortalError as exc:
+        raise _http_error(exc)
+
+
+@router.post("/pdf-by-passbook")
+@_threads.route
+def passbook_pdf(req: PassbookRequest):
+    try:
+        return pdf.response(*pattadar_client.fetch_passbook_pdf(req.passbook_no, req.aadhaar_last4))
     except PortalError as exc:
         raise _http_error(exc)

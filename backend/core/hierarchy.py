@@ -60,6 +60,15 @@ def survey_map_village(dmv: str) -> dict | None:
     return _survey_map_by_dmv().get(dmv)
 
 
+@lru_cache(maxsize=1)
+def _pattadar_by_id() -> dict[str, dict]:
+    return {r["village_id"]: r for r in _pattadar()}
+
+
+def pattadar_village(village_id: str) -> dict | None:
+    return _pattadar_by_id().get(village_id)
+
+
 def search_pattadar_villages(q: str, limit: int = 15) -> list[dict]:
     if len(q) < 2:
         return []
