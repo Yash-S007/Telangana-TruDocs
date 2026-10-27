@@ -108,10 +108,26 @@ def test_pairs_are_parsed_like_the_browser():
 
 def test_inputs_are_checked_before_the_portal():
     # "~" is the separator inside the portal's `codes` parameter.
-    _raises(BAD_INPUT, client.search_hyderabad_localities, "1600001", "ab~c")
-    _raises(BAD_INPUT, client.search_hyderabad_localities, "1600001", "ab")
+    _raises(client.LOCALITY_CHARS, client.search_hyderabad_localities, "1600001", "ab~c")
+    _raises(client.LOCALITY_CHARS, client.search_hyderabad_localities, "1600001", "ab")
+    _raises(client.LOCALITY_CHARS, client.search_hyderabad_localities, "1600001", "అమీర్‌పేట")
     _raises(BAD_INPUT, client.fetch_rates, district_id="15_1", mandal_id="07", mandal="GANDIPET", village_id="x", village="KOKAPET")
     _raises(BAD_INPUT, client.fetch_rates, district_id="16_1", division_id="1600001", locality_id="1611", locality="")
+    # Telugu and full-width digits are not 0-9
+    _raises(BAD_INPUT, client.fetch_rates, district_id="15_1", mandal_id="౦౭", village_id="1516004")
+    _raises(BAD_INPUT, client.fetch_rates, district_id="15_1", mandal_id="07", village_id="１５１６００４")
+    _raises(BAD_INPUT, client.search_hyderabad_localities, "౧౬", "Ameerpet")
+
+
+def test_village_names_sent_to_igrs_come_from_our_list(monkeypatch):
+    sent = []
+    monkeypatch.setattr(client, "_rates", lambda fields, _bucket: sent.append(dict(fields)) or {"rows": []})
+    client.fetch_rates(district_id="15_1", mandal_id="07", mandal="<b>x</b>", village_id="1516004", village="ANYTHING")
+    assert (sent[0]["mndlName"], sent[0]["vlgName"], sent[0]["villageCode"]) == ("GANDIPET", "KOKAPET", "1516004")
+    # a village code not on our list, or under another mandal, never reaches IGRS
+    _raises(BAD_INPUT, client.fetch_rates, district_id="15_1", mandal_id="07", village_id="9999999")
+    _raises(BAD_INPUT, client.fetch_rates, district_id="15_1", mandal_id="08", village_id="1516004")
+    assert len(sent) == 1
 
 
 def _app() -> TestClient:

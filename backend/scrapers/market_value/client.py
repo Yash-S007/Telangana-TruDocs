@@ -28,6 +28,7 @@ from reportlab.lib.units import mm
 
 from backend.core import pdf
 from backend.core.errors import BAD_INPUT, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
+from backend.core.hierarchy import market_value_village
 from backend.core.rate_limit import RateLimiter
 
 BASE_URL = "https://registration.telangana.gov.in"
@@ -49,9 +50,11 @@ _LOCKS = [threading.Lock() for _ in range(32)]
 
 # Checked before anything reaches the portal. The locality text also can't
 # contain "~", which is the field separator inside `codes`.
-_DISTRICT_RE = re.compile(r"\d{1,3}_\d{1,2}")
-_CODE_RE = re.compile(r"\d{1,10}")
+# [0-9], not \d: \d also matches Telugu and other non-ASCII digits.
+_DISTRICT_RE = re.compile(r"[0-9]{1,3}_[0-9]{1,2}")
+_CODE_RE = re.compile(r"[0-9]{1,10}")
 _LOCALITY_QUERY_RE = re.compile(r"[A-Za-z0-9 .\-]{3,50}")
+LOCALITY_CHARS = "Type at least 3 letters of the locality's name, in English."
 _MAX_NAME = 120
 
 
@@ -171,7 +174,9 @@ def fetch_villages(district_id: str, mandal_id: str) -> list:
 
 def search_hyderabad_localities(division_id: str, query: str) -> list:
     division_id = _require(division_id, _CODE_RE, "division")
-    query = _require(" ".join((query or "").split()), _LOCALITY_QUERY_RE, "locality text")
+    query = " ".join((query or "").split())
+    if not _LOCALITY_QUERY_RE.fullmatch(query):
+        raise PortalError(LOCALITY_CHARS, "locality text: English letters, digits, space . - only")
     return _fetch_localities(division_id, query.upper())
 
 
@@ -182,6 +187,14 @@ def _fetch_localities(division_id: str, query: str) -> list:
     with _client() as client:
         resp = _get(client, "/UnitRateMV/getLocationDetails", {"codes": codes})
     return _parse_pairs(resp.text)
+
+
+def _place(district_id: str, mandal_id: str, village_id: str) -> dict:
+    """The village from our list, by its codes: the names IGRS gets are ours, never the browser's."""
+    place = market_value_village(_require(village_id, _CODE_RE, "village"))
+    if not place or (place["district_id"], place["mandal_id"]) != (district_id, _require(mandal_id, _CODE_RE, "mandal")):
+        raise PortalError(BAD_INPUT, "village not on our list")
+    return place
 
 
 def fetch_rates(
@@ -213,18 +226,19 @@ def fetch_rates(
             "locality": _require(locality_id, _CODE_RE, "locality"),
         }
     else:
+        place = _place(district_id, mandal_id, village_id)
         fields = {
             "locName": "",
             "rValue": "U",
             "tFlag": "",
-            "mndlName": _require_name(mandal, "mandal name"),
-            "vlgName": _require_name(village, "village name"),
+            "mndlName": place["mandal"],
+            "vlgName": place["village"],
             "RateType": "U",
             "search_by": "L",
             "districtId": district_id,
-            "mandalCode": _require(mandal_id, _CODE_RE, "mandal"),
+            "mandalCode": place["mandal_id"],
             "divCode": "",
-            "villageCode": _require(village_id, _CODE_RE, "village"),
+            "villageCode": place["village_id"],
             "locality": "",
         }
 
@@ -290,7 +304,8 @@ def fetch_rates_pdf(**fields) -> tuple:
     if fields["district_id"].strip() == HYDERABAD:
         place, where, parts = name("locality"), "Hyderabad (GHMC)", (name("locality"),)
     else:
-        place, where, parts = name("village"), f"{name('mandal')} mandal", (name("village"), name("mandal"))
+        v = market_value_village(fields["village_id"].strip())  # fetch_rates found it on our list
+        place, where, parts = v["village"], f"{v['mandal']} mandal", (v["village"], v["mandal"])
     p = pdf.para
     story = [p(f"Market Value Land Rates: {place}", "title"), p(f"{where}, Telangana", "sub"),
              p(f"{len(rows)} land rate{'' if len(rows) == 1 else 's'}", "head"),

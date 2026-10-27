@@ -10,7 +10,7 @@ from backend.scrapers.market_value import client as mv_client
 router = APIRouter(prefix="/api/market-value", tags=["market-value"])
 _threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
-_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, mv_client.NO_RATES: 404}
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, mv_client.NO_RATES: 404, mv_client.LOCALITY_CHARS: 400}
 
 
 def _http_error(exc: PortalError) -> HTTPException:
