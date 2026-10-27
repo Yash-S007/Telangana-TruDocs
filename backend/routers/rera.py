@@ -9,7 +9,7 @@ from backend.scrapers.rera import client as rera_client
 router = APIRouter(prefix="/api/rera", tags=["rera"])
 _threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
-_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, CAPTCHA_FAILED: 503}
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, CAPTCHA_FAILED: 503, rera_client.NAME_CHARS: 400, rera_client.REG_NO_FORMAT: 400}
 
 
 def _status(exc: PortalError) -> int:

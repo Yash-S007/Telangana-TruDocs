@@ -145,15 +145,20 @@ def test_no_records_and_unexpected_pages(monkeypatch):
     _raises(NOT_FOUND, client.search_projects, project_name="Sample")
 
 
-@pytest.mark.parametrize("fields", [
-    {"project_name": "Sample<script>"}, {"project_name": "50% off"}, {"promoter_name": 'A "B" C'},
-    {"project_name": "ab"}, {"project_name": "A" * 101}, {"promoter_name": "B" * 51},
-    {"registration_no": "P0240-1224"}, {"registration_no": "P0240000122412345"}, {"registration_no": "P02<1"}, {},
+@pytest.mark.parametrize("fields, message", [
+    ({"project_name": "Sample<script>"}, client.NAME_CHARS), ({"project_name": "50% off"}, client.NAME_CHARS),
+    ({"promoter_name": 'A "B" C'}, client.NAME_CHARS), ({"project_name": "ab"}, client.NAME_CHARS),
+    ({"project_name": "A" * 101}, client.NAME_CHARS), ({"promoter_name": "B" * 51}, client.NAME_CHARS),
+    ({"project_name": "Avasa Hills (Phase 2)"}, client.NAME_CHARS), ({"promoter_name": "అవాస"}, client.NAME_CHARS),
+    ({"registration_no": "P0240-1224"}, client.REG_NO_FORMAT), ({"registration_no": "P0240000122412345"}, client.REG_NO_FORMAT),
+    ({"registration_no": "P02<1"}, client.REG_NO_FORMAT), ({}, BAD_INPUT),
 ])
-def test_bad_input_never_reaches_the_portal(monkeypatch, fields):
+def test_bad_input_never_reaches_the_portal(monkeypatch, fields, message):
     fake = portal(monkeypatch)
-    _raises(BAD_INPUT, client.search_projects, **fields)
+    _raises(message, client.search_projects, **fields)
     assert fake.calls == []
+    r = _app().post("/api/rera/search", json=fields)  # the page shows the message as it comes
+    assert r.status_code == 400 and r.json() == {"detail": message}
 
 
 def test_registration_number_and_names_are_tidied(monkeypatch):

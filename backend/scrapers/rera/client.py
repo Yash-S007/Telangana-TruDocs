@@ -59,6 +59,8 @@ _LOCKS = [threading.Lock() for _ in range(32)]
 # make it list thousands of projects.
 _NAME_RE = re.compile(r"[A-Za-z0-9_ .&'-]{3,100}")
 _REG_NO_RE = re.compile(r"[A-Za-z0-9]{4,15}")
+NAME_CHARS = "Names can have English letters, digits, spaces and . & ' - _ only, at least 3 characters."
+REG_NO_FORMAT = "A RERA registration number looks like P02400001224."
 _TOKEN_RE = re.compile(
     r"ProjectID=(\d{1,10})&Division=\d{1,4}&UserID=\d{1,10}&RoleID=\d{1,4}&AppID=\d{1,10}"
     r"&Action=SEARCH&CharacterD=\d{1,4}&ExtAppID=\d{0,10}"
@@ -86,7 +88,7 @@ def _send(client: httpx.Client, method: str, path: str, **kwargs) -> httpx.Respo
 def _clean(value: str, max_len: int) -> str:
     value = " ".join((value or "").split())
     if value and (len(value) > max_len or not _NAME_RE.fullmatch(value)):
-        raise PortalError(BAD_INPUT, "names may use letters, numbers, spaces and . & ' - _ only, at least 3 characters")
+        raise PortalError(NAME_CHARS, "unexpected characters or length in a name")
     return value
 
 
@@ -147,7 +149,7 @@ def search_projects(project_name: str = "", promoter_name: str = "", registratio
         "CertiNo": (registration_no or "").strip().upper(),
     }
     if fields["CertiNo"] and not _REG_NO_RE.fullmatch(fields["CertiNo"]):
-        raise PortalError(BAD_INPUT, "registration numbers look like P02400001224")
+        raise PortalError(REG_NO_FORMAT, "registration number is not 4-15 letters/digits")
     if not any(fields.values()):
         raise PortalError(BAD_INPUT, "enter a project name, promoter name or registration number")
     key = tuple(fields.items())
