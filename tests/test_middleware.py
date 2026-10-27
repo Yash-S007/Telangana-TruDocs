@@ -118,3 +118,24 @@ def test_the_app_wires_the_guards_in_order():
     from backend.main import app
     order = [m.cls for m in app.user_middleware]  # outermost first
     assert order.index(middleware.AccessLog) < order.index(middleware.BodyLimit) < order.index(middleware.PerPersonLimit)
+
+
+def test_text_is_compressed_pdfs_are_not():
+    from fastapi import Response
+    from backend.main import app as site
+    gzip = next(m for m in site.user_middleware if m.cls.__name__ == "GZipMiddleware")
+    app = FastAPI()
+    app.add_middleware(gzip.cls, *gzip.args, **gzip.kwargs)  # the site's own settings
+
+    @app.get("/script.js")
+    def script():
+        return Response("const a = 1;\n" * 5000, media_type="text/javascript")
+
+    @app.get("/api/sample/pdf")
+    def pdf():
+        return Response(b"%PDF-1.4 " + b"x" * 5000, media_type="application/pdf")
+    client = TestClient(app)
+    r = client.get("/script.js", headers={"Accept-Encoding": "gzip"})
+    assert r.headers["content-encoding"] == "gzip" and int(r.headers["content-length"]) < 2000
+    r = client.get("/api/sample/pdf", headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in r.headers and r.content.startswith(b"%PDF-")
