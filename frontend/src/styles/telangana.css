@@ -218,6 +218,12 @@
   .tool-section .page > * {
     min-width: 0;
   }
+
+  /* The heading spans every row, so results follow the form card directly; it used to set the
+     first row's height, leaving a gap under a short form. It stays pinned on the left. */
+  .tool-section .page > *:nth-child(1) {
+    grid-row: 1 / span 99;
+  }
 }
 
 /* small text inside result cards */

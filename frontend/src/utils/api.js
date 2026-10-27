@@ -180,3 +180,20 @@ export const searchGhmcMutation = (assessmentNumber, opts) =>
 export const loadGhmcCircles = (opts) => getJson('/api/ghmc/circles', opts)
 
 export const searchGhmcPropertyTax = (circle, ptin, opts) => postJson('/api/ghmc/property-tax', { circle, ptin }, opts)
+
+// ── CDMA Property Tax Receipt (towns outside Hyderabad) ──────────────────────
+
+export const loadCdmaTowns = (opts) => getJson('/api/cdma-tax/towns', opts)
+
+export const findCdmaProperties = (body, opts) => postJson('/api/cdma-tax/find', body, opts)
+
+export const cdmaDetailsPath = (ptin) => `/api/cdma-tax/pdf/${encodeURIComponent(ptin)}`
+
+export const cdmaReceiptPath = (ptin, receipt) =>
+  `/api/cdma-tax/receipt?${new URLSearchParams({ ptin, receipt_no: receipt.receipt_no, slno: receipt.slno })}`
+
+// A property and its details PDF together, so the result opens with its preview.
+export async function lookupCdmaProperty(ptin, opts) {
+  const data = await postJson('/api/cdma-tax/property', { ptin }, opts)
+  return { ...data, doc: { key: 'details', ...(await getPdf(cdmaDetailsPath(ptin), opts)) } }
+}
