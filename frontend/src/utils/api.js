@@ -197,3 +197,14 @@ export async function lookupCdmaProperty(ptin, opts) {
   const data = await postJson('/api/cdma-tax/property', { ptin }, opts)
   return { ...data, doc: { key: 'details', ...(await getPdf(cdmaDetailsPath(ptin), opts)) } }
 }
+
+// ── TG-bPASS Building Permission ─────────────────────────────────────────────
+
+export const bpassDocumentPath = (fileNo, kind) => `/api/bpass/document?${new URLSearchParams({ file_no: fileNo, kind })}`
+
+// An application and its main letter together, so the result opens with its preview.
+export async function lookupBpass(fileNo, opts) {
+  const data = await postJson('/api/bpass/application', { file_no: fileNo }, opts)
+  const first = data.documents?.[0]
+  return { ...data, doc: first ? { key: first.kind, ...(await getPdf(bpassDocumentPath(data.file_no, first.kind), opts)) } : null }
+}

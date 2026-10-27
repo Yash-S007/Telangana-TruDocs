@@ -13,6 +13,7 @@ import HydraFtlView from './views/HydraFtl/HydraFtlView.jsx'
 import GhmcMutationView from './views/GhmcMutation/GhmcMutationView.jsx'
 import GhmcPropertyTaxView from './views/GhmcPropertyTax/GhmcPropertyTaxView.jsx'
 import CdmaTaxView from './views/CdmaTax/CdmaTaxView.jsx'
+import BpassView from './views/Bpass/BpassView.jsx'
 import { MAIN_TOOL, TOOLS } from './tools.js'
 
 // Each tool's screen, by id. A tool not listed yet still shows its old form (LegacyTool).
@@ -27,6 +28,7 @@ const VIEWS = {
   'ghmc-mutation': GhmcMutationView,
   'ghmc-property-tax': GhmcPropertyTaxView,
   'cdma-tax-receipt': CdmaTaxView,
+  'building-permission': BpassView,
 }
 
 function ToolView({ id }) {
