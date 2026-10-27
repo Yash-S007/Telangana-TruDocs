@@ -32,6 +32,11 @@ LANDING_PATH = "/landStatus.do"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 _throttle = RateLimiter(min_interval_seconds=1.0)
+_ID_RE = re.compile(r"[0-9]{1,10}")  # not \d: that also matches Telugu and other non-ASCII digits
+# Survey and khata numbers: digits, English or Telugu letters, / and - (e.g. 123, 5A, 45/1/అ)
+_NUMBER_RE = re.compile(r"[0-9A-Za-z\u0c00-\u0c7f/ -]{1,20}")
+NUMBER_CHARS = "A survey or khata number has only digits, letters and /, like 123 or 5A."
+OPTIONS = ("surveyNo", "khataNo", "pattadarNo")
 
 
 def _client(timeout: float = 45.0) -> httpx.Client:
@@ -150,6 +155,8 @@ def fetch_survey_options(village_id: str, option: str = "surveyNo") -> list:
     portal's own toggle. Confirmed live: this endpoint (the currently-active
     JS, not the older commented-out version still present in the page source)
     takes all three fields in the POST body, with no query string."""
+    if not _ID_RE.fullmatch(village_id or "") or option not in OPTIONS:
+        raise PortalError(BAD_INPUT, "village code is digits; option is surveyNo, khataNo or pattadarNo")
     with _client() as client:
         _get(client, LANDING_PATH)
         resp = _post(
@@ -175,6 +182,11 @@ def fetch_adangal(
         raise PortalError(BAD_INPUT, "district, division, mandal, village and survey/khata number are all required")
     if option not in ("surveyNo", "khataNo"):
         raise PortalError(BAD_INPUT, "option must be surveyNo or khataNo")
+    if not all(_ID_RE.fullmatch(x) for x in (district_id, division_id, mandal_id, village_id)):
+        raise PortalError(BAD_INPUT, "location codes are digits")
+    survey_or_khata_value = survey_or_khata_value.strip()
+    if not _NUMBER_RE.fullmatch(survey_or_khata_value):
+        raise PortalError(NUMBER_CHARS, "unexpected characters in the survey/khata number")
 
     with _client() as client:
         _get(client, LANDING_PATH)  # seed JSESSIONID

@@ -10,7 +10,7 @@ from backend.scrapers.adangal import client as adangal_client
 router = APIRouter(prefix="/api/adangal", tags=["adangal"])
 _threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
-_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, adangal_client.NUMBER_CHARS: 400}
 
 
 def _http_error(exc: PortalError) -> HTTPException:
@@ -25,7 +25,10 @@ def villages_search(q: str = ""):
 @router.get("/survey-options/{village_id}")
 @_threads.route
 def survey_options(village_id: str, option: str = "surveyNo"):
-    return adangal_client.fetch_survey_options(village_id, option)
+    try:
+        return adangal_client.fetch_survey_options(village_id, option)
+    except PortalError as exc:
+        raise _http_error(exc)
 
 
 class AdangalRequest(BaseModel):

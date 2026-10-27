@@ -2,12 +2,14 @@
 these use a made-up table in the portal's markup. No network."""
 import re
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from reportlab import rl_config
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PortalError
+from backend.core.rate_limit import RateLimiter
 from backend.routers import adangal as adangal_router
 from backend.scrapers.adangal import client
 
@@ -56,3 +58,45 @@ def test_pdf_errors_are_json_like_the_search(monkeypatch, message, status):
     for path in ("/api/adangal/search", "/api/adangal/pdf"):
         r = _app().post(path, json=SEARCH)
         assert r.status_code == status and r.json() == {"detail": message}
+
+
+@pytest.fixture
+def no_ccla(monkeypatch):
+    """Any request that gets past our checks fails the test instead of reaching the CCLA site."""
+    def refuse(self, request):
+        raise AssertionError(f"reached {request.url.host}")
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", refuse)
+
+
+@pytest.mark.parametrize("value", ["😀", "<b>1</b>", "1'2\"3", "#@!%&*", "9" * 21, "12.5", "1;2", "   "])
+def test_odd_survey_numbers_never_reach_ccla(no_ccla, value):
+    r = _app().post("/api/adangal/pdf", json={**SEARCH, "survey_or_khata_value": value})
+    assert r.status_code == 400 and r.json()["detail"] in (client.NUMBER_CHARS, BAD_INPUT)
+
+
+@pytest.mark.parametrize("field", ["district_id", "division_id", "mandal_id", "village_id"])
+def test_location_codes_are_digits(no_ccla, field):
+    r = _app().post("/api/adangal/search", json={**SEARCH, field: "13a"})
+    assert r.status_code == 400 and r.json() == {"detail": BAD_INPUT}
+
+
+@pytest.mark.parametrize("value", ["999/Z", "45/1/అ", "5A", "12-1"])
+def test_real_looking_numbers_pass_our_check(monkeypatch, value):
+    def down(self, request):
+        raise httpx.ConnectError("down", request=request)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", down)
+    monkeypatch.setattr(client, "_throttle", RateLimiter(0))
+    r = _app().post("/api/adangal/pdf", json={**SEARCH, "survey_or_khata_value": value})
+    assert r.status_code == 502  # got past our check, then found the (cut-off) portal down
+
+
+def test_survey_list_is_a_plain_error_not_a_crash(monkeypatch, no_ccla):
+    assert _app().get("/api/adangal/survey-options/13a").status_code == 400
+    assert _app().get("/api/adangal/survey-options/1301023", params={"option": "x"}).status_code == 400
+
+    def down(self, request):
+        raise httpx.ConnectError("down", request=request)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", down)
+    monkeypatch.setattr(client, "_throttle", RateLimiter(0))
+    r = _app().get("/api/adangal/survey-options/1301023")
+    assert r.status_code == 502 and r.json() == {"detail": PORTAL_DOWN}
