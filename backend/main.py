@@ -8,12 +8,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from backend.core.middleware import AccessLog
 from backend.routers import adangal, bpass, cdma_tax, ghmc, health, hydra_ftl, market_value, pattadar_passbook, prohibited_lands, rera, survey_map, village_map
 
 logger = logging.getLogger(__name__)
 # httpx logs every portal URL at INFO, and the passbook search puts the passbook number
 # and Aadhaar digits in its URL — keep those out of logs even when INFO is switched on.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+# uvicorn's access log prints every URL, and some carry a PTIN, a file or a survey number;
+# AccessLog prints the route's template instead.
+logging.getLogger("uvicorn.access").disabled = True
 
 
 def _prewarm_caches() -> None:
@@ -47,6 +51,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Telangana TruDocs API", version="0.1.0", lifespan=lifespan)
+app.add_middleware(AccessLog)
 
 # CORS — always allow localhost dev server; add any production origins from env.
 _extra_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
