@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
 from pydantic import BaseModel
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
 from backend.core.tool_threads import ToolThreads
 from backend.scrapers.cdma_tax import client as cdma_tax_client
@@ -14,10 +14,6 @@ _STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
 
 def _status(exc: PortalError) -> int:
     return _STATUS.get(exc.user_message, 502)
-
-
-def _pdf(pdf: bytes, filename: str) -> Response:
-    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{filename}"'})
 
 
 @router.get("/towns")
@@ -58,7 +54,7 @@ def lookup(req: LookupRequest):
 @_threads.route
 def receipt(ptin: str, receipt_no: str, slno: str):
     try:
-        return _pdf(*cdma_tax_client.fetch_receipt_pdf(ptin, receipt_no, slno))
+        return pdf.response(*cdma_tax_client.fetch_receipt_pdf(ptin, receipt_no, slno))
     except PortalError as exc:
         raise HTTPException(status_code=_status(exc), detail=exc.user_message)
 
@@ -69,6 +65,6 @@ def receipt(ptin: str, receipt_no: str, slno: str):
 @_threads.route
 def property_pdf(ptin: str):
     try:
-        return _pdf(*cdma_tax_client.fetch_property_pdf(ptin))
+        return pdf.response(*cdma_tax_client.fetch_property_pdf(ptin))
     except PortalError as exc:
         raise HTTPException(status_code=_status(exc), detail=exc.user_message)

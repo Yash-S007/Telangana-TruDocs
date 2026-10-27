@@ -83,19 +83,22 @@ async function send(path, options = {}) {
 
 const getJson = (path, { signal } = {}) => send(path, { signal }).then((r) => r.json().catch(() => ({})))
 
-const postJson = (path, body, { signal } = {}) => send(path, {
+const post = (path, body, signal) => send(path, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),
   signal,
-}).then((r) => r.json().catch(() => ({})))
+})
 
-// An official PDF for the preview: its bytes and the server's file name.
-export async function getPdf(path, { signal } = {}) {
-  const res = await send(path, { signal })
+const postJson = (path, body, { signal } = {}) => post(path, body, signal).then((r) => r.json().catch(() => ({})))
+
+// A PDF for the preview (an official one, or ours of a result): its bytes and the server's file name.
+async function asPdf(res) {
   const m = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') || '')
   return { blob: await res.blob(), filename: m ? m[1] : 'document.pdf' }
 }
+
+export const getPdf = (path, { signal } = {}) => send(path, { signal }).then(asPdf)
 
 // ── Village search (a pre-scraped list per portal, searched on our server) ───
 
