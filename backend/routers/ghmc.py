@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.core import pdf
-from backend.core.errors import PortalError
+from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
 from backend.core.tool_threads import ToolThreads
 from backend.scrapers.ghmc import mutation_client, property_tax_client
 
@@ -11,9 +11,11 @@ router = APIRouter(prefix="/api/ghmc", tags=["ghmc"])
 _mutation_threads = ToolThreads()
 _tax_threads = ToolThreads()
 
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
+
 
 def _http_error(exc: PortalError) -> HTTPException:
-    return HTTPException(status_code=404 if "No record" in exc.user_message else 502, detail=exc.user_message)
+    return HTTPException(status_code=_STATUS.get(exc.user_message, 502), detail=exc.user_message)
 
 
 class MutationRequest(BaseModel):

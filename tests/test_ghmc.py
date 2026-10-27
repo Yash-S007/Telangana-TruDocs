@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from reportlab import rl_config
 
-from backend.core.errors import NOT_FOUND, PORTAL_DOWN, PortalError
+from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PortalError
 from backend.routers import ghmc as ghmc_router
 from backend.scrapers.ghmc import mutation_client, property_tax_client
 from backend.scrapers.ghmc.record_pdf import field_label
@@ -67,12 +67,14 @@ def test_a_page_without_fields_is_no_record(monkeypatch):
     assert r.status_code == 404 and r.json() == {"detail": NOT_FOUND}
 
 
-@pytest.mark.parametrize("message, status", [(NOT_FOUND, 404), (PORTAL_DOWN, 502)])
-def test_pdf_errors_are_json_like_the_searches(monkeypatch, message, status):
+@pytest.mark.parametrize("message, status", [(NOT_FOUND, 404), (BAD_INPUT, 400), (PORTAL_DOWN, 502)])
+def test_errors_are_json_with_the_right_status(monkeypatch, message, status):
     def fail(*_a, **_k):
         raise PortalError(message)
     monkeypatch.setattr(mutation_client, "fetch_mutation_status", fail)
     monkeypatch.setattr(property_tax_client, "fetch_property_tax", fail)
-    for path, body in (("/api/ghmc/mutation/pdf", {"assessment_number": "1"}), ("/api/ghmc/property-tax/pdf", {"circle": "17", "ptin": "1"})):
+    mutation, tax = {"assessment_number": "1"}, {"circle": "17", "ptin": "1"}
+    for path, body in (("/api/ghmc/mutation", mutation), ("/api/ghmc/mutation/pdf", mutation),
+                       ("/api/ghmc/property-tax", tax), ("/api/ghmc/property-tax/pdf", tax)):
         r = _app().post(path, json=body)
-        assert r.status_code == status and r.json() == {"detail": message}
+        assert r.status_code == status and r.json() == {"detail": message}, path
