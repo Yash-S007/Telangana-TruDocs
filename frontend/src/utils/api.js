@@ -136,7 +136,8 @@ export const landPassbookPdf = (body, opts) => postPdf('/api/pattadar/pdf-by-pas
 export const loadAdangalSurveys = (villageId, opts) =>
   getJson(`/api/adangal/survey-options/${encodeURIComponent(villageId)}`, opts)
 
-export const searchAdangal = (body, opts) => postJson('/api/adangal/search', body, opts)
+// The Pahani as our PDF (the page shows only the PDF).
+export const adangalPdf = (body, opts) => postPdf('/api/adangal/pdf', body, opts)
 
 // ── Prohibited Lands (IGRS Section 22A) ──────────────────────────────────────
 

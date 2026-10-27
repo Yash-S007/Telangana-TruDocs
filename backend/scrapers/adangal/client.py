@@ -15,10 +15,16 @@ Confirmed live (2026-09-29) by reading the actual page source and JS:
 """
 import re
 from functools import lru_cache
+from html import unescape
 
 import httpx
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import mm
+from reportlab.platypus import Spacer
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
+from backend.core.hierarchy import adangal_village
 from backend.core.rate_limit import RateLimiter
 
 BASE_URL = "https://ccla.telangana.gov.in"
@@ -246,3 +252,40 @@ def _parse_result(html: str) -> dict:
         "not_found_messages": not_found_messages,
         "raw_tables_html": data_tables[:3],
     }
+
+
+# ---------- a Pahani as a PDF ----------
+# It names its owners: each PDF is made from its own search and kept nowhere.
+def fetch_adangal_pdf(**fields) -> tuple:
+    """(pdf bytes, filename): the portal's Pahani tables as our PDF, landscape for their many columns."""
+    data = fetch_adangal(**fields)  # checks the fields
+    number = fields["survey_or_khata_value"].strip()
+    kind = "Khata" if fields.get("option") == "khataNo" else "Survey"
+    village = adangal_village(fields["village_id"].strip())
+    name = lambda key: village[key].split("|")[0].strip()  # "Ankapoor | అంకాపూర్" → "Ankapoor"
+    place = f" · {name('village')} village, {name('mandal')} mandal, {name('district')} district" if village else ""
+    searched = f"{kind} No. {number}{place}"
+    story = [pdf.para("Adangal (Pahani)", "title"), pdf.para(searched, "sub")]
+    for html in data["raw_tables_html"]:
+        rows = _table_rows(html)
+        if rows:
+            width = max(len(r) for r in rows)
+            cells = [[pdf.para(c, "label" if i == 0 else "cell") for c in r + [""] * (width - len(r))]  # short rows padded
+                     for i, r in enumerate(rows)]
+            story += [Spacer(0, 5 * mm), pdf.cells(cells, [(landscape(A4)[0] - 2 * pdf.MARGIN) / width] * width, header=True)]
+    content = pdf.build(story, title=f"Adangal (Pahani): {searched}", pagesize=landscape(A4),
+                        note="For reference only: not a certified copy of the Pahani.",
+                        source="CCLA Telangana land records (ccla.telangana.gov.in)")
+    return content, pdf.filename("Adangal", name("village") if village else "", kind.lower(), number)
+
+
+def _table_rows(html: str) -> list:
+    """A portal table as rows of cell text. shortcut: merged cells (colspan/rowspan) are laid out
+    as single cells, so a merged heading shifts its row; fix once the portal shows a real Pahani
+    (it had none for any number tried, Oct 2026)."""
+    rows = []
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S | re.I):
+        cells = [" ".join(unescape(re.sub(r"<[^>]+>", " ", c)).split()) for c in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", tr, re.S | re.I)]
+        if any(cells):
+            rows.append(cells)
+    return rows

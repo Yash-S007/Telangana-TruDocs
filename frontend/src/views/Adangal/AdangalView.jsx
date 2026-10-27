@@ -3,8 +3,8 @@ import VillageSearch from '../../components/common/VillageSearch.jsx'
 import SelectLoading from '../../components/common/SelectLoading.jsx'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
 import LoaderModal from '../../components/common/LoaderModal.jsx'
-import RecordResult from '../../components/common/RecordResult.jsx'
-import { loadAdangalSurveys, searchAdangal } from '../../utils/api.js'
+import DocumentResult from '../../components/common/DocumentResult.jsx'
+import { adangalPdf, loadAdangalSurveys } from '../../utils/api.js'
 import { useRequest } from '../../utils/useRequest.js'
 
 export default function AdangalView() {
@@ -35,7 +35,7 @@ export default function AdangalView() {
     e.preventDefault()
     if (!village) { fail('Please select a village first.'); return }
     if (!surveyNo.trim()) { fail('Please enter the survey number.'); return }
-    request.run((signal) => searchAdangal({
+    request.run((signal) => adangalPdf({
       district_id: village.district_id,
       division_id: village.division_id,
       mandal_id: village.mandal_id,
@@ -95,7 +95,7 @@ export default function AdangalView() {
         </form>
       </div>
 
-      {result && <RecordResult result={result} />}
+      {result && <DocumentResult key={result.filename} first={result} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Fetching the Adangal from the Revenue portal…" />
     </div>
