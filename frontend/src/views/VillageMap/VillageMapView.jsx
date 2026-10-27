@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import VillageSearch from '../../components/common/VillageSearch.jsx'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
 import LoaderModal from '../../components/common/LoaderModal.jsx'
-import { loadVillageMap, villageMapPdfUrl } from '../../utils/api.js'
+import DocumentResult from '../../components/common/DocumentResult.jsx'
+import { lookupVillageMap } from '../../utils/api.js'
 import { MAP_H, MAP_W, merc } from '../../utils/mapGeometry.js'
 import { useRequest } from '../../utils/useRequest.js'
 
@@ -152,23 +153,23 @@ function VillageMap({ result }) {
   )
 }
 
+// The A3 PDF in the preview, then what a PDF can't do: the map to zoom into.
 function VillageMapResult({ result }) {
   const surveys = result.parcels.filter((p) => p.survey_no).length
   const older = result.map_version === '2.5m'
   return (
-    <div className="card result-card map-card">
-      <StatusMessage kind="success" message={`${result.village}, ${result.mandal}, ${result.district} · ${surveys} survey numbers`} />
-      <VillageMap key={result.dmv} result={result} />
-      <div className="result-actions">
-        <a className="download-btn" href={villageMapPdfUrl(result.dmv)} target="_blank" rel="noopener noreferrer">
-          <i className="ti ti-file-download" /> Download PDF
-        </a>
-      </div>
-      <p className="result-note">
-        {older && 'This village is only on the older map, so outlines can sit 20–50 m from the real spot. '}
-        Zoom in to read the survey numbers in crowded areas. Traced from digitised government village maps; for reference only, not a legal survey.
-      </p>
-    </div>
+    <DocumentResult first={result.doc}>
+      {() => (
+        <div className="card result-card map-card">
+          <h3 className="result-heading">{result.village}, {result.mandal}, {result.district} · {surveys} survey numbers</h3>
+          <VillageMap result={result} />
+          <p className="result-note">
+            {older && 'This village is only on the older map, so outlines can sit 20–50 m from the real spot. '}
+            Zoom in to read the survey numbers in crowded areas. Traced from digitised government village maps; for reference only, not a legal survey.
+          </p>
+        </div>
+      )}
+    </DocumentResult>
   )
 }
 
@@ -180,7 +181,7 @@ export default function VillageMapView() {
   function submit(e) {
     e.preventDefault()
     if (!village) { fail('Please select a village first.'); return }
-    request.run((signal) => loadVillageMap(village.dmv, { signal }))
+    request.run((signal) => lookupVillageMap(village.dmv, { signal }))
   }
 
   return (
@@ -214,7 +215,7 @@ export default function VillageMapView() {
         </form>
       </div>
 
-      {result && <VillageMapResult result={result} />}
+      {result && <VillageMapResult key={result.dmv} result={result} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Drawing the village map…" />
     </div>

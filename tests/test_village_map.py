@@ -84,7 +84,7 @@ def test_village_without_a_map_is_a_friendly_not_found(portal):
     assert resp.status_code == 404 and resp.json()["detail"] == NOT_FOUND
 
 
-def test_pdf_opens_in_the_tab_with_a_clear_name(portal, photo):
+def test_pdf_has_a_clear_name(portal, photo):
     resp = _app().get(f"/api/village-map/pdf/{DMV}")
     assert resp.status_code == 200 and resp.headers["content-type"] == "application/pdf"
     assert resp.headers["content-disposition"] == 'inline; filename="Village-map-Kokapet-1516004.pdf"'
@@ -99,11 +99,10 @@ def test_pdf_is_still_made_when_the_photo_is_unavailable(portal, monkeypatch):
     assert pdf.startswith(b"%PDF-") and name == "Village-map-Kokapet-1516004.pdf"
 
 
-def test_pdf_errors_are_a_readable_page(photo, monkeypatch):
+def test_pdf_errors_are_a_plain_message(photo, monkeypatch):
     monkeypatch.setattr(survey_map, "_village_parcels", lambda dmv: pytest.fail("portal called"))
-    resp = _app().get("/api/village-map/pdf/123")
-    assert resp.status_code == 400 and resp.headers["content-type"].startswith("text/html")
-    assert BAD_INPUT.replace("'", "&#x27;") in resp.text
+    resp = _app().get("/api/village-map/pdf/123")  # the page's preview shows the message
+    assert resp.status_code == 400 and resp.json() == {"detail": BAD_INPUT}
 
 
 def test_identical_pdf_requests_share_one_build_and_repeats_are_cached(portal, photo, monkeypatch):

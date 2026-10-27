@@ -184,9 +184,11 @@ export async function lookupSurveyMap(dmv, surveyNo, opts) {
   return { ...parcel, doc: { key: 'map', ...(await postPdf('/api/survey-map/pdf', body, opts)) } }
 }
 
-export const loadVillageMap = (dmv, opts) => getJson(`/api/village-map/map/${encodeURIComponent(dmv)}`, opts)
-
-export const villageMapPdfUrl = (dmv) => `/api/village-map/pdf/${encodeURIComponent(dmv)}`
+// A village's map and its A3 PDF together, so the result opens with its preview.
+export async function lookupVillageMap(dmv, opts) {
+  const map = await getJson(`/api/village-map/map/${encodeURIComponent(dmv)}`, opts)
+  return { ...map, doc: { key: 'map', ...(await getPdf(`/api/village-map/pdf/${encodeURIComponent(dmv)}`, opts)) } }
+}
 
 // ── Hydra FTL Map (HMDA lakes) ───────────────────────────────────────────────
 
