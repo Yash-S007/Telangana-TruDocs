@@ -9,7 +9,7 @@ from backend.scrapers.cdma_tax import client as cdma_tax_client
 router = APIRouter(prefix="/api/cdma-tax", tags=["cdma-tax"])
 _threads = ToolThreads()  # this tool waits on its own threads, not the whole site's
 
-_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400}
+_STATUS = {NOT_FOUND: 404, BAD_INPUT: 400, cdma_tax_client.DOOR_CHARS: 400, cdma_tax_client.OWNER_CHARS: 400}
 
 
 def _status(exc: PortalError) -> int:

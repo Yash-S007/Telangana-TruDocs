@@ -226,7 +226,8 @@ def test_a_dropped_connection_is_tried_once_more(monkeypatch):
     assert len(accepted) == 2
 
 
-@pytest.mark.parametrize("bad", ["", "111399900", "11139990011", "1113-99900", "ABCDEFGHIJ", "1113999001;"])
+@pytest.mark.parametrize("bad", ["", "111399900", "11139990011", "1113-99900", "ABCDEFGHIJ", "1113999001;", "౧౧౧౩౯౯౯౦౦౧",
+                                 "１１１３９９９００１"])
 def test_bad_ptins_never_reach_the_portal(monkeypatch, bad):
     fake = portal(monkeypatch)
     _raises(BAD_INPUT, client.fetch_property, bad)
@@ -267,20 +268,21 @@ def test_find_nothing_and_unexpected_pages(monkeypatch):
     _raises(PORTAL_DOWN, client.find_properties, "1113", owner_name="SAMPLE")
 
 
-@pytest.mark.parametrize("town, door, owner", [
-    ("9999", "", "SAMPLE"),     # not a CDMA town
-    ("", "", "SAMPLE"),
-    ("1113", "", ""),           # neither field
-    ("1113", "", "AB"),         # too short: one or two letters match tens of thousands
-    ("1113", "1", ""),
-    ("1113", "", "SAMPLE,1113"),  # a comma would shift the portal's comma-joined fields
-    ("1113", "9-9,99", ""),
-    ("1113", "", 'SAMPLE"}'),
-    ("1113", "", "OWNER123"),
+@pytest.mark.parametrize("town, door, owner, message", [
+    ("9999", "", "SAMPLE", BAD_INPUT),     # not a CDMA town
+    ("", "", "SAMPLE", BAD_INPUT),
+    ("1113", "", "", BAD_INPUT),           # neither field
+    ("1113", "", "AB", client.OWNER_CHARS),  # too short: one or two letters match tens of thousands
+    ("1113", "1", "", client.DOOR_CHARS),
+    ("1113", "", "SAMPLE,1113", client.OWNER_CHARS),  # a comma would shift the portal's comma-joined fields
+    ("1113", "9-9,99", "", client.DOOR_CHARS),
+    ("1113", "", 'SAMPLE"}', client.OWNER_CHARS),
+    ("1113", "", "OWNER123", client.OWNER_CHARS),
+    ("1113", "", "రాము", client.OWNER_CHARS),
 ])
-def test_bad_searches_never_reach_the_portal(monkeypatch, town, door, owner):
+def test_bad_searches_never_reach_the_portal(monkeypatch, town, door, owner, message):
     fake = portal(monkeypatch)
-    _raises(BAD_INPUT, client.find_properties, town, door, owner)
+    _raises(message, client.find_properties, town, door, owner)
     assert fake.calls == []
 
 
@@ -328,7 +330,7 @@ def test_broken_receipt_pages_are_portal_trouble(monkeypatch, pages):
 
 @pytest.mark.parametrize("ptin, receipt_no, slno", [
     ("111399900", "043700", "1"), (PTIN, "", "1"), (PTIN, "04 37", "1"), (PTIN, "043700'", "1"),
-    (PTIN, "043700", ""), (PTIN, "043700", "12a"), (PTIN, "x" * 41, "1"),
+    (PTIN, "043700", ""), (PTIN, "043700", "12a"), (PTIN, "x" * 41, "1"), (PTIN, "043700", "౧"),
 ])
 def test_bad_receipts_never_reach_the_portal(monkeypatch, ptin, receipt_no, slno):
     fake = portal(monkeypatch)
@@ -410,3 +412,12 @@ def test_details_pdf_refuses_bad_ptins_before_the_portal(monkeypatch):
     fake = portal(monkeypatch)
     r = _app().get("/api/cdma-tax/pdf/11139")
     assert r.status_code == 400 and r.json() == {"detail": BAD_INPUT} and fake.calls == []
+
+
+def test_find_says_what_a_door_number_or_owner_name_may_contain(monkeypatch):
+    fake = portal(monkeypatch)
+    for body, message in [({"town_id": "1113", "owner_name": "రాము"}, client.OWNER_CHARS),
+                          ({"town_id": "1113", "door_no": "8-1-43, Rd 2"}, client.DOOR_CHARS)]:
+        r = _app().post("/api/cdma-tax/find", json=body)
+        assert r.status_code == 400 and r.json() == {"detail": message}
+    assert fake.calls == []

@@ -40,13 +40,15 @@ _throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minut
 _LOOKUP_SECONDS = 5 * 60
 _RECEIPT_SECONDS = 6 * 3600
 
-_PTIN_RE = re.compile(r"\d{10}")
+_PTIN_RE = re.compile(r"[0-9]{10}")  # not \d: that also matches Telugu and other non-ASCII digits
 _RECEIPT_NO_RE = re.compile(r"[A-Za-z0-9/_-]{1,40}")
-_SLNO_RE = re.compile(r"\d{1,25}")
+_SLNO_RE = re.compile(r"[0-9]{1,25}")
 # The portal's own rules for these boxes, minus the comma (it joins the search fields with
 # commas), with a 3-character minimum: one letter matches tens of thousands of properties.
 _OWNER_RE = re.compile(r"[A-Za-z .]{3,50}")
 _DOOR_RE = re.compile(r"[A-Za-z0-9 &./-]{3,30}")
+DOOR_CHARS = "A door number has English letters, digits, spaces and & . / - only, like 8-1-43."
+OWNER_CHARS = "Type the owner's name in English letters, as on the tax records."
 _NO_RECORDS = "No Records found"
 
 
@@ -123,9 +125,9 @@ def find_properties(town_id: str, door_no: str = "", owner_name: str = "") -> di
     if not door_no and not owner_name:
         raise PortalError(BAD_INPUT, "enter a door number or an owner name")
     if door_no and not _DOOR_RE.fullmatch(door_no):
-        raise PortalError(BAD_INPUT, "door numbers use letters, digits, spaces and & . / - only, at least 3 characters")
+        raise PortalError(DOOR_CHARS, "door numbers use letters, digits, spaces and & . / - only, at least 3 characters")
     if owner_name and not _OWNER_RE.fullmatch(owner_name):
-        raise PortalError(BAD_INPUT, "owner names use letters, spaces and dots only, at least 3 characters")
+        raise PortalError(OWNER_CHARS, "owner names use letters, spaces and dots only, at least 3 characters")
     with _client() as client:
         html = _send(client, "/BindPTSearchDetail_PV", {"Param": f"{district_id},,{owner_name},{door_no},{town_id}"})
     heads, rows = _table(html, "demoGrid")
