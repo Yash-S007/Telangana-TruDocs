@@ -103,6 +103,17 @@ export const getPdf = (path, { signal } = {}) => send(path, { signal }).then(asP
 // POST, so what was searched (a passbook number, an owner's PTIN) stays out of the access log.
 const postPdf = (path, body, { signal } = {}) => post(path, body, signal).then(asPdf)
 
+// A result with its first PDF, for the preview. If only the PDF fails (a portal that can't send
+// it, a slow photo), the result still shows, with the reason where the PDF would be.
+async function withPreview(result, key, fetchPdf) {
+  try {
+    return { ...result, doc: { key, ...(await fetchPdf()) }, docError: '' }
+  } catch (err) {
+    if (err.name === 'AbortError') throw err
+    return { ...result, doc: null, docError: err.message }
+  }
+}
+
 // ── Village search (a pre-scraped list per portal, searched on our server) ───
 
 export const searchVillages = (portal, q, opts) =>
@@ -154,22 +165,12 @@ export const prohibitedOrderPath = (orderId, flag) =>
   `/api/prohibited-lands/order?${new URLSearchParams({ order_id: orderId, flag })}`
 
 // The place's 22-A lists and the first one that's online, so the result opens with its preview.
-// That PDF failing (the portal sometimes can't send one) still shows the lists.
 export async function lookupProhibited(location, opts) {
   const data = await postJson('/api/prohibited-lands/categories', location, opts)
   const kind = Object.keys(data.categories || {}).find((k) => data.categories[k].some((c) => c.available))
   const first = kind && data.categories[kind].find((c) => c.available)
-  let doc = null
-  let docError = ''
-  if (first) {
-    try {
-      doc = { key: `${kind}-${first.formtype}`, ...(await getPdf(prohibitedPdfPath(location, kind, first.formtype), opts)) }
-    } catch (err) {
-      if (err.name === 'AbortError') throw err
-      docError = err.message
-    }
-  }
-  return { ...data, doc, docError }
+  if (!first) return { ...data, doc: null }
+  return withPreview(data, `${kind}-${first.formtype}`, () => getPdf(prohibitedPdfPath(location, kind, first.formtype), opts))
 }
 
 // ── Survey Map and Village Map (TGRAC village maps) ──────────────────────────
@@ -181,13 +182,13 @@ export const loadSurveyMapSurveys = (dmv, opts) =>
 export async function lookupSurveyMap(dmv, surveyNo, opts) {
   const body = { dmv, survey_no: surveyNo }
   const parcel = await postJson('/api/survey-map/parcel', body, opts)
-  return { ...parcel, doc: { key: 'map', ...(await postPdf('/api/survey-map/pdf', body, opts)) } }
+  return withPreview(parcel, 'map', () => postPdf('/api/survey-map/pdf', body, opts))
 }
 
 // A village's map and its A3 PDF together, so the result opens with its preview.
 export async function lookupVillageMap(dmv, opts) {
   const map = await getJson(`/api/village-map/map/${encodeURIComponent(dmv)}`, opts)
-  return { ...map, doc: { key: 'map', ...(await getPdf(`/api/village-map/pdf/${encodeURIComponent(dmv)}`, opts)) } }
+  return withPreview(map, 'map', () => getPdf(`/api/village-map/pdf/${encodeURIComponent(dmv)}`, opts))
 }
 
 // ── Hydra FTL Map (HMDA lakes) ───────────────────────────────────────────────

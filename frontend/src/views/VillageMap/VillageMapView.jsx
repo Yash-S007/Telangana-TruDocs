@@ -158,7 +158,7 @@ function VillageMapResult({ result }) {
   const surveys = result.parcels.filter((p) => p.survey_no).length
   const older = result.map_version === '2.5m'
   return (
-    <DocumentResult first={result.doc}>
+    <DocumentResult first={result.doc} firstError={result.docError}>
       {() => (
         <div className="card result-card map-card">
           <h3 className="result-heading">{result.village}, {result.mandal}, {result.district} · {surveys} survey numbers</h3>

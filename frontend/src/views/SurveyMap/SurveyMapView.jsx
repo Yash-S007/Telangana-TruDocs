@@ -11,7 +11,7 @@ import { useRequest } from '../../utils/useRequest.js'
 function SurveyMapResult({ result }) {
   const { lat, lon } = result.centre
   return (
-    <DocumentResult first={result.doc}>
+    <DocumentResult first={result.doc} firstError={result.docError}>
       {() => (
         <div className="card result-card">
           <h3 className="result-heading">Survey No. {result.survey_no} · {result.village}, {result.mandal}, {result.district}</h3>
