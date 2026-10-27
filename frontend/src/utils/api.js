@@ -100,6 +100,9 @@ async function asPdf(res) {
 
 export const getPdf = (path, { signal } = {}) => send(path, { signal }).then(asPdf)
 
+// POST, so what was searched (a passbook number, an owner's PTIN) stays out of the access log.
+const postPdf = (path, body, { signal } = {}) => post(path, body, signal).then(asPdf)
+
 // ── Village search (a pre-scraped list per portal, searched on our server) ───
 
 export const searchVillages = (portal, q, opts) =>
@@ -107,7 +110,8 @@ export const searchVillages = (portal, q, opts) =>
 
 // ── Market Value (IGRS) ──────────────────────────────────────────────────────
 
-export const searchMarketValue = (body, opts) => postJson('/api/market-value/search', body, opts)
+// The rates as our PDF (the page shows only the PDF).
+export const marketValuePdf = (body, opts) => postPdf('/api/market-value/pdf', body, opts)
 
 export const loadHyderabadDivisions = (opts) => getJson('/api/market-value/hyderabad/divisions', opts)
 

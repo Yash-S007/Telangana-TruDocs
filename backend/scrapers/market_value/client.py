@@ -24,7 +24,9 @@ from functools import lru_cache
 from html import unescape
 
 import httpx
+from reportlab.lib.units import mm
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.core.rate_limit import RateLimiter
 
@@ -278,3 +280,24 @@ def _parse_rates(html: str) -> dict:
         raise PortalError(NO_RATES, "rates table had no data rows")
 
     return {"source": "igrs_market_value", "found": True, "rows": rows}
+
+
+def fetch_rates_pdf(**fields) -> tuple:
+    """(pdf bytes, filename): the rates the tool shows, as a PDF. It goes through the search's
+    cache, so a repeat costs the portal nothing."""
+    rows = fetch_rates(**fields)["rows"]  # checks the fields
+    name = lambda key: " ".join(fields.get(key, "").split())
+    if fields["district_id"].strip() == HYDERABAD:
+        place, where, parts = name("locality"), "Hyderabad (GHMC)", (name("locality"),)
+    else:
+        place, where, parts = name("village"), f"{name('mandal')} mandal", (name("village"), name("mandal"))
+    p = pdf.para
+    story = [p(f"Market Value Land Rates: {place}", "title"), p(f"{where}, Telangana", "sub"),
+             p(f"{len(rows)} land rate{'' if len(rows) == 1 else 's'}", "head"),
+             pdf.cells([[p(h, "label") for h in ("WARD-BLOCK", "LOCALITY", "LAND VALUE (RS. PER SQ. YARD)", "EFFECTIVE DATE")]]
+                       + [[p(r[k], "cell") for k in _COLUMNS] for r in rows],
+                       [26 * mm, 84 * mm, 40 * mm, 30 * mm], header=True)]
+    content = pdf.build(story, title=f"Market value land rates: {place}",
+                        note="For reference only: not a certified copy. The official rates are on the IGRS website.",
+                        source="IGRS Telangana, Registration and Stamps department (registration.telangana.gov.in)")
+    return content, pdf.filename("Market-value", *parts)

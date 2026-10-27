@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PortalError
 from backend.core.hierarchy import search_market_value_villages
 from backend.core.tool_threads import ToolThreads
@@ -55,5 +56,14 @@ class MarketValueRequest(BaseModel):
 def search(req: MarketValueRequest):
     try:
         return mv_client.fetch_rates(**req.model_dump())
+    except PortalError as exc:
+        raise _http_error(exc)
+
+
+@router.post("/pdf")
+@_threads.route
+def rates_pdf(req: MarketValueRequest):
+    try:
+        return pdf.response(*mv_client.fetch_rates_pdf(**req.model_dump()))
     except PortalError as exc:
         raise _http_error(exc)

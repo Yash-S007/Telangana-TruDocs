@@ -3,7 +3,8 @@ import VillageSearch from '../../components/common/VillageSearch.jsx'
 import SelectLoading from '../../components/common/SelectLoading.jsx'
 import StatusMessage from '../../components/common/StatusMessage.jsx'
 import LoaderModal from '../../components/common/LoaderModal.jsx'
-import { loadHyderabadDivisions, searchHyderabadLocalities, searchMarketValue } from '../../utils/api.js'
+import DocumentResult from '../../components/common/DocumentResult.jsx'
+import { loadHyderabadDivisions, marketValuePdf, searchHyderabadLocalities } from '../../utils/api.js'
 import { useRequest } from '../../utils/useRequest.js'
 
 const AREAS = [
@@ -11,55 +12,19 @@ const AREAS = [
   { value: 'hyderabad', label: 'Hyderabad (GHMC)' },
 ]
 
-// Same columns, in the same order, as the official IGRS results page. On phones each row
-// becomes a labelled card (stack-on-mobile).
-function RatesTable({ place, rows }) {
-  return (
-    <div className="card result-card">
-      <StatusMessage kind="success" message={`${rows.length} land rate${rows.length === 1 ? '' : 's'} for ${place}`} />
-      <div className="result-table-wrapper">
-        <table className="result-table stack-on-mobile">
-          <thead>
-            <tr>
-              <th>Ward-Block</th>
-              <th>Locality</th>
-              <th>Land Value (₹ per sq. yard)</th>
-              <th>Effective Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td data-label="Ward-Block">{r.ward_block}</td>
-                <td data-label="Locality">{r.locality}</td>
-                <td data-label="Land Value (₹/sq. yd)">{r.land_rate_per_sq_yard}</td>
-                <td data-label="Effective Date">{r.effective_date}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 function VillageFields({ request }) {
   const [village, setVillage] = useState(null)
 
   function submit(e) {
     e.preventDefault()
     if (!village) { request.fail('Please select a village first.'); return }
-    const place = `${village.village}, ${village.mandal}`
-    request.run(async (signal) => ({
-      place,
-      ...(await searchMarketValue({
-        district_id: village.district_id,
-        mandal_id: village.mandal_id,
-        mandal: village.mandal,
-        village_id: village.village_id,
-        village: village.village,
-      }, { signal })),
-    }))
+    request.run((signal) => marketValuePdf({
+      district_id: village.district_id,
+      mandal_id: village.mandal_id,
+      mandal: village.mandal,
+      village_id: village.village_id,
+      village: village.village,
+    }, { signal }))
   }
 
   return (
@@ -121,16 +86,12 @@ function HyderabadFields({ request }) {
     e.preventDefault()
     const loc = localityIndex !== '' && localities[Number(localityIndex)]
     if (!loc) { fail('Please pick a locality from the list.'); return }
-    const division = divisions.list.find((d) => d.value === divisionId)
-    request.run(async (signal) => ({
-      place: `${loc.label}${division ? `, ${division.label}` : ''}`,
-      ...(await searchMarketValue({
-        district_id: '16_1',
-        division_id: divisionId,
-        locality_id: loc.value,
-        locality: loc.label,
-      }, { signal })),
-    }))
+    request.run((signal) => marketValuePdf({
+      district_id: '16_1',
+      division_id: divisionId,
+      locality_id: loc.value,
+      locality: loc.label,
+    }, { signal }))
   }
 
   return (
@@ -211,7 +172,7 @@ export default function MarketValueView() {
         {area === 'village' ? <VillageFields request={request} /> : <HyderabadFields request={request} />}
       </div>
 
-      {result && <RatesTable place={result.place} rows={result.rows || []} />}
+      {result && <DocumentResult key={result.filename} first={result} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Fetching land rates from IGRS…" />
     </div>
