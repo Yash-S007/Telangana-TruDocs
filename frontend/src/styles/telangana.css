@@ -18,6 +18,21 @@
   }
 }
 
+/* Our segmented choices have two options: on phones they share the width (wrapping if need be)
+   instead of the shell's sideways scroll, which hid half of the second option. */
+@media (max-width: 767px) {
+  .radio-group {
+    width: 100%;
+  }
+
+  .radio-option {
+    flex: 1 1 0;
+    padding: 9px 10px;
+    white-space: normal;
+    text-align: center;
+  }
+}
+
 /* Safari (Mac and iPhone) ignores a dropdown's height and draws a thin native box (22-25px tall
    next to 48px inputs) unless the native look is off; the arrow is drawn here instead. */
 .field select {
@@ -130,3 +145,70 @@
     background: none;
   }
 }
+
+/* a record read off a portal page: label / value rows, stacked on phones */
+.record-fields {
+  margin: 0;
+}
+
+.record-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 38%) 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.record-row:last-child {
+  border-bottom: none;
+}
+
+.record-row dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding-top: 2px;
+}
+
+.record-row dd {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .record-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* tables the portal drew (Adangal), kept as drawn; wide ones scroll inside the card */
+.portal-tables {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 4px;
+}
+
+.portal-tables table {
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.portal-tables th,
+.portal-tables td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.portal-tables th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+

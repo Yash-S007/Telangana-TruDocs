@@ -104,3 +104,15 @@ export const loadHyderabadDivisions = (opts) => getJson('/api/market-value/hyder
 export const searchHyderabadLocalities = (divisionId, q, opts) =>
   getJson(`/api/market-value/hyderabad/localities?${new URLSearchParams({ division_id: divisionId, q })}`, opts)
 
+// ── Land Details (Bhu Bharati) ───────────────────────────────────────────────
+
+export const loadLandSurveys = (villageId, opts) =>
+  getJson(`/api/pattadar/survey-options/${encodeURIComponent(villageId)}`, opts)
+
+export const loadLandKhatas = (villageId, surveyNo, opts) =>
+  getJson(`/api/pattadar/khata-options/${encodeURIComponent(villageId)}?${new URLSearchParams({ survey_no: surveyNo })}`, opts)
+
+export const searchLandBySurvey = (body, opts) => postJson('/api/pattadar/search', body, opts)
+
+export const searchLandByPassbook = (body, opts) => postJson('/api/pattadar/search-by-passbook', body, opts)
+

@@ -4,11 +4,13 @@ import DrawerMenu from './components/layout/DrawerMenu.jsx'
 import BottomSheet from './components/common/BottomSheet.jsx'
 import { LegacyTool } from './legacy/LegacyTools.jsx'
 import MarketValueView from './views/MarketValue/MarketValueView.jsx'
+import LandDetailsView from './views/LandDetails/LandDetailsView.jsx'
 import { MAIN_TOOL, TOOLS } from './tools.js'
 
 // Each tool's screen, by id. A tool not listed yet still shows its old form (LegacyTool).
 const VIEWS = {
   'market-value': MarketValueView,
+  'pattadar-passbook': LandDetailsView,
 }
 
 function ToolView({ id }) {
