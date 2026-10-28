@@ -1,8 +1,11 @@
-"""The shared PDF builder: our own PDFs of a tool's result."""
+"""The shared PDF builder: our own PDFs of a tool's result, and the front page on every PDF."""
+import io
 import re
 
 import pytest
+from pypdf import PdfReader, PdfWriter
 from reportlab import rl_config
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfbase import pdfmetrics
 
 from backend.core import pdf
@@ -47,6 +50,52 @@ def test_telugu_after_latin_letters_starts_its_own_word(text, shown):
 def test_filenames_are_ascii():
     assert pdf.filename("Land-details", "Kokapet|కోకాపేట్", "1/2అ") == "Land-details-Kokapet-1-2.pdf"
     assert pdf.filename("Market-value", "", "BANJARA HILLS (PART)") == "Market-value-BANJARA-HILLS-PART.pdf"
+
+
+def _official(*, rotate=0, signed=False) -> bytes:
+    """A one-page landscape PDF as a department might send it, optionally signed."""
+    objects = [b"<< /Type /Catalog /Pages 2 0 R%s >>" % (b" /AcroForm << /Fields [4 0 R] >>" if signed else b""),
+               b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+               b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Rotate %d >>" % rotate,
+               b"<< /FT /Sig /T (Signature1) /V << /Type /Sig >> >>"]
+    out, offsets = b"%PDF-1.7\n", []
+    for n, obj in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj %s endobj\n" % (n, obj)
+    table = b"".join(b"%010d 00000 n \n" % o for o in offsets)
+    return out + b"xref\n0 5\n0000000000 65535 f \n%strailer << /Size 5 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (table, len(out))
+
+
+def test_the_front_page_comes_first_and_names_the_search(monkeypatch):
+    monkeypatch.setattr(rl_config, "pageCompression", 0)
+    body = pdf.build([pdf.para("A title", "title")], title="Doc title", note="n", source="s", pagesize=landscape(A4))
+    content, name = pdf.document(body, "Survey Map", " Kokapet ", "", None, "Survey No. 12/అ")
+    assert name == "Survey Map - Kokapet - Survey No. 12.pdf"
+    doc = PdfReader(io.BytesIO(content))
+    cover, page = doc.pages
+    assert (cover.mediabox.width, cover.mediabox.height) == (page.mediabox.width, page.mediabox.height)  # landscape like it
+    words = cover.extract_text()
+    assert "TruEstate" in words and "Survey Map" in words and "Kokapet" in words
+    assert b"(A title)" in content and doc.metadata.title == "Doc title"  # the document itself is untouched
+    assert b"HindGuntur" in content  # the Telugu in the survey number
+
+
+def test_the_front_page_takes_the_shape_of_a_turned_page():
+    content = pdf.with_cover(_official(rotate=90), "Village Map", "Kokapet")
+    cover, page = PdfReader(io.BytesIO(content)).pages
+    assert (cover.mediabox.width, cover.mediabox.height) == (595, 842) and page.rotation == 90
+
+
+def test_signed_locked_and_broken_pdfs_go_out_as_issued():
+    signed = _official(signed=True)
+    assert pdf.with_cover(signed, "RERA Certificate", "Sample Heights") == signed
+    book = PdfWriter(clone_from=PdfReader(io.BytesIO(_official())))
+    book.encrypt(user_password="", owner_password="department", algorithm="AES-128")  # opens, but locked
+    locked = io.BytesIO()
+    book.write(locked)
+    assert pdf.with_cover(locked.getvalue(), "Building Permission (TG-bPASS)", "File No. 1") == locked.getvalue()
+    assert pdf.document(b"%PDF-1.4 not really", "Hydra FTL Map", "Sample Cheruvu") == (b"%PDF-1.4 not really", "Hydra FTL Map - Sample Cheruvu.pdf")
+    assert len(PdfReader(io.BytesIO(pdf.with_cover(_official(), "Village Map", ""))).pages) == 2  # nothing searched: just the name
 
 
 def test_every_page_has_the_footer_and_watermark(monkeypatch):
