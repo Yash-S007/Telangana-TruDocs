@@ -187,7 +187,7 @@ def test_only_the_portals_own_pdf_links_are_kept():
 def test_a_letter_is_downloaded_with_a_fresh_link_and_cached(monkeypatch):
     fake = portal(monkeypatch)
     pdf, name = client.fetch_document(FILE, "WorkCommencement")
-    assert pdf == PDF and name == "TG-bPASS-WorkCommencement-999901-TEST-0001-2025.pdf"
+    assert pdf == PDF and name == "Building Permission (TG-bPASS) - File No. 999901-TEST-0001-2025 - Letter of approval for commencement of work.pdf"
     assert ("file", link("WorkCommencement")) in fake.calls
     searches_before = len(fake.searched())
     client.fetch_document(FILE, "WorkCommencement")
@@ -225,4 +225,4 @@ def test_routes_serve_the_lookup_and_the_pdf_inline(monkeypatch):
     assert app.post("/api/bpass/application", json={"file_no": FILE}).json()["status"] == "Approved"
     r = app.get("/api/bpass/document", params={"file_no": FILE, "kind": "WorkCommencement"})
     assert r.status_code == 200 and r.content == PDF and r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == 'inline; filename="TG-bPASS-WorkCommencement-999901-TEST-0001-2025.pdf"'
+    assert r.headers["content-disposition"] == 'inline; filename="Building Permission (TG-bPASS) - File No. 999901-TEST-0001-2025 - Letter of approval for commencement of work.pdf"'

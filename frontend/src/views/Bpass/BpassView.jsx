@@ -7,7 +7,7 @@ import { useRequest } from '../../utils/useRequest.js'
 
 // Like the CDMA tool: the official letter in the preview, the application's details, and its other
 // letters underneath to switch the preview.
-function BpassResult({ result }) {
+function BpassResult({ result, slot }) {
   const facts = [
     ['Status', result.status], ['Approval for', result.approval_for], ['Type', result.type],
     ['Applied on', result.applied_on], ['Decided on', result.decided_on],
@@ -17,6 +17,7 @@ function BpassResult({ result }) {
   ].filter(([, v]) => v)
   return (
     <DocumentResult
+      slot={slot}
       first={result.doc}
       docs={result.documents.map((d) => ({ key: d.kind, label: d.label, path: bpassDocumentPath(result.file_no, d.kind) }))}
       title={`${result.file_no}${result.town ? ` · ${result.town}` : ''}`}
@@ -30,6 +31,7 @@ function BpassResult({ result }) {
 
 export default function BpassView() {
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, error, cancel, fail, reset } = request
   const [fileNo, setFileNo] = useState('')
 
@@ -80,9 +82,10 @@ export default function BpassView() {
             <i className="ti ti-building" /> Show Building Permission
           </button>
         </form>
+        <div ref={setSlot} />
       </div>
 
-      {result && <BpassResult key={result.file_no} result={result} />}
+      {result && <BpassResult key={result.file_no} result={result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Getting the permission from TG-bPASS…" />
     </div>

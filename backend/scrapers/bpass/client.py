@@ -18,6 +18,7 @@ from functools import lru_cache
 
 import httpx
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.core.rate_limit import RateLimiter
 from backend.core.single_flight import single_flight
@@ -158,8 +159,7 @@ def fetch_document(file_no: str, kind: str) -> tuple:
     if kind not in {d["kind"] for d in result["documents"]}:
         raise PortalError(NOT_FOUND, "the portal has no such document for this application")
     key = (result["file_no"], kind, int(time.time() // _CACHE_SECONDS))
-    pdf = single_flight(("bpass-doc",) + key, lambda: _document(*key))
-    return pdf, f"TG-bPASS-{kind}-{re.sub(r'[^A-Za-z0-9]+', '-', result['file_no']).strip('-')}.pdf"
+    return single_flight(("bpass-doc",) + key, lambda: _document(*key))
 
 
 @lru_cache(maxsize=256)
@@ -170,9 +170,9 @@ def _links(file_no: str, _bucket: int) -> dict:
 
 
 # shortcut: keeps the last 32 letters (~300 KB each) for 6 hours; move to disk if many people
-# open the same letters.
+# open the same letters. Kept with the front page, so everyone asking for one shares one copy.
 @lru_cache(maxsize=32)
-def _document(file_no: str, kind: str, _bucket: int) -> bytes:
+def _document(file_no: str, kind: str, _bucket: int) -> tuple:
     link = _links(file_no, int(time.time() // _LINK_SECONDS)).get(kind)
     if not link:
         raise PortalError(NOT_FOUND, "the portal has no such document for this application")
@@ -186,4 +186,4 @@ def _document(file_no: str, kind: str, _bucket: int) -> bytes:
         raise PortalError(PORTAL_DOWN, str(exc)) from exc
     if not resp.content.startswith(b"%PDF"):
         raise PortalError(PORTAL_DOWN, "the portal's document is not a PDF")
-    return resp.content
+    return pdf.document(resp.content, "Building Permission (TG-bPASS)", f"File No. {file_no}", DOCUMENTS[kind])
