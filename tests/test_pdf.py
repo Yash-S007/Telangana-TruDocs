@@ -48,8 +48,10 @@ def test_telugu_after_latin_letters_starts_its_own_word(text, shown):
 
 
 def test_filenames_are_ascii():
-    assert pdf.filename("Land-details", "Kokapet|కోకాపేట్", "1/2అ") == "Land-details-Kokapet-1-2.pdf"
-    assert pdf.filename("Market-value", "", "BANJARA HILLS (PART)") == "Market-value-BANJARA-HILLS-PART.pdf"
+    assert pdf.filename("Land Details Search", "Kokapet|కోకాపేట్", "Survey No. 1/2అ") == "Land Details Search - Kokapet - Survey No. 1-2.pdf"
+    assert pdf.filename("Land Market Value", "", "BANJARA HILLS (PART)") == "Land Market Value - BANJARA HILLS (PART).pdf"
+    assert pdf.filename("RERA Certificate", 'A "quoted"\r\nname;') == "RERA Certificate - A quoted name.pdf"  # nothing that breaks the header
+    assert len(pdf.filename("Village Map", "x" * 400)) == 154
 
 
 def _official(*, rotate=0, signed=False) -> bytes:

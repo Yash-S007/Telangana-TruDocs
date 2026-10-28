@@ -252,19 +252,14 @@ def document(content: bytes, title: str, *searched) -> tuple:
     """(the PDF with our front page, its file name): the service's name and what was searched, on the
     front page and in the name, e.g. "Land Details Search - Hydersaipet - Survey No. 1.pdf"."""
     searched = [" ".join(str(s).split()) for s in searched if s and str(s).strip()]
-    return with_cover(content, title, " · ".join(searched)), _name(title, *searched)  # a line never starts with "·"
+    return with_cover(content, title, " · ".join(searched)), filename(title, *searched)  # a line never starts with "·"
 
 
-def _name(*parts) -> str:
+def filename(*parts) -> str:
     """A file name like "Land Market Value - Kokapet - Gandipet mandal.pdf": ASCII only, since it
     travels in an HTTP header, so Telugu letters are left out ("1/2అ" → "1-2")."""
     words = (" ".join(re.sub(r"[^A-Za-z0-9 ().,&'_-]+", " ", str(p).replace("/", "-")).split()).strip(" -") for p in parts)
     return " - ".join(w for w in words if w)[:150].rstrip(" -") + ".pdf"
-
-
-def filename(*parts) -> str:
-    """A file name like "Market-value-Kokapet.pdf": ASCII only, since it travels in an HTTP header."""
-    return "-".join(p for p in (re.sub(r"[^A-Za-z0-9]+", "-", str(x)).strip("-") for x in parts) if p) + ".pdf"
 
 
 def response(content: bytes, name: str) -> Response:
