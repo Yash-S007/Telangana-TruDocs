@@ -12,10 +12,10 @@ const CERTIFICATE_LABELS = {
 }
 
 // The projects found, each certificate showing in the preview above when picked (like CDMA's list).
-function ReraResults({ result }) {
+function ReraResults({ result, slot }) {
   const { total, shown, projects } = result
   return (
-    <DocumentResult first={null} emptyText="Pick a certificate below to see it here." loadingText="Getting the certificate from TG-RERA…">
+    <DocumentResult slot={slot} first={null} emptyText="Pick a certificate below to see it here." loadingText="Getting the certificate from TG-RERA…">
       {(button) => (
         <div className="card result-card">
           <StatusMessage kind="success" message={shown < total
@@ -29,7 +29,7 @@ function ReraResults({ result }) {
                   <span className="doc-meta">{p.promoter} · updated {p.last_modified}</span>
                 </div>
                 <div className="doc-actions">
-                  {p.certificates.map((c) => button({ key: `${i}-${c.kind}`, path: reraCertificatePath(c.kind, c.token), button: CERTIFICATE_LABELS[c.kind] }))}
+                  {p.certificates.map((c) => button({ key: `${i}-${c.kind}`, path: reraCertificatePath(c.kind, c.token, p.project), button: CERTIFICATE_LABELS[c.kind] }))}
                   {p.details_url && (
                     <a className="table-action-btn secondary" href={p.details_url} target="_blank" rel="noopener noreferrer">Project details&nbsp;↗</a>
                   )}
@@ -45,6 +45,7 @@ function ReraResults({ result }) {
 
 export default function ReraView() {
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, error, cancel, fail, reset } = request
   const [fields, setFields] = useState({ project_name: '', promoter_name: '', registration_no: '' })
   const set = (key) => (e) => { setFields({ ...fields, [key]: e.target.value }); reset() }
@@ -95,9 +96,10 @@ export default function ReraView() {
             <i className="ti ti-certificate" /> Find RERA Certificate
           </button>
         </form>
+        <div ref={setSlot} />
       </div>
 
-      {result && <ReraResults result={result} />}
+      {result && <ReraResults result={result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Searching TG-RERA…" />
     </div>

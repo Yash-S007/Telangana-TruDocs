@@ -25,6 +25,7 @@ from pathlib import Path
 import certifi
 import httpx
 
+from backend.core import pdf
 from backend.core.captcha import solve as solve_captcha
 from backend.core.errors import BAD_INPUT, CAPTCHA_FAILED, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.core.rate_limit import RateLimiter
@@ -43,6 +44,7 @@ KINDS = {
     "special-extension": "/SearchList/ShowWarExtensionCertificateIframe",
 }
 _BUTTON_KIND = {"showFile": "registration", "showExtensionFile": "extension", "showWarExtensionFile": "special-extension"}
+_KIND_NAMES = {"extension": "Extension certificate", "special-extension": "4-month extension"}  # as the page names them
 
 _SSL = ssl.create_default_context(cafile=certifi.where())
 _SSL.load_verify_locations(cafile=str(Path(__file__).with_name("emsign_ssl_ca_g1.pem")))
@@ -59,6 +61,7 @@ _LOCKS = [threading.Lock() for _ in range(32)]
 # make it list thousands of projects.
 _NAME_RE = re.compile(r"[A-Za-z0-9_ .&'-]{3,100}")
 _REG_NO_RE = re.compile(r"[A-Za-z0-9]{4,15}")
+_PROJECT_RE = re.compile(r"[A-Za-z0-9 .&'(),/@#:+_-]{1,100}")  # a project's name as the search lists it
 NAME_CHARS = "Names can have English letters, digits, spaces and . & ' - _ only, at least 3 characters."
 REG_NO_FORMAT = "A RERA registration number looks like P02400001224."
 _TOKEN_RE = re.compile(
@@ -181,14 +184,17 @@ def _search(fields: tuple, _bucket: int) -> dict:
     raise PortalError(CAPTCHA_FAILED, "captcha retries exhausted")
 
 
-def fetch_certificate(kind: str, token: str) -> tuple:
-    """(pdf bytes, filename) for one of a project's certificates."""
+def fetch_certificate(kind: str, token: str, project: str = "") -> tuple:
+    """(pdf bytes, filename) for one of a project's certificates. `project` is its name as the
+    search listed it, only for the file name (and the front page, which a signed one doesn't get)."""
     if kind not in KINDS:
         raise PortalError(BAD_INPUT, "unknown certificate kind")
     project_id = _token_project_id(token)
     with _LOCKS[hash((kind, token)) % len(_LOCKS)]:
-        pdf = _certificate(kind, token, int(time.time() // _CACHE_SECONDS))
-    return pdf, f"RERA-{kind}-certificate-{project_id}.pdf"
+        content = _certificate(kind, token, int(time.time() // _CACHE_SECONDS))
+    project = " ".join((project or "").split())
+    return pdf.document(content, "RERA Certificate", project if _PROJECT_RE.fullmatch(project) else f"Project ID {project_id}",
+                        _KIND_NAMES.get(kind))
 
 
 # shortcut: keeps the last 16 certificates (~0.5-0.9 MB each) for 6 hours; size it up or
@@ -201,7 +207,7 @@ def _certificate(kind: str, token: str, _bucket: int) -> bytes:
         src = _FILE_SRC_RE.search(viewer)  # only ever follow the portal's own certificate-file path
         if not src:
             raise PortalError(NOT_FOUND, "the portal has no certificate file for this project")
-        pdf = _send(client, "GET", unescape(src.group(1))).content
-    if not pdf.startswith(b"%PDF"):
+        file = _send(client, "GET", unescape(src.group(1))).content
+    if not file.startswith(b"%PDF"):
         raise PortalError(NOT_FOUND, "the portal's certificate file is not a PDF")
-    return pdf
+    return file

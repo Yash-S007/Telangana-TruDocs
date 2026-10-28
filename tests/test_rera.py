@@ -179,7 +179,7 @@ def test_identical_searches_share_one_portal_search(monkeypatch):
 def test_certificate_is_fetched_through_the_portal_viewer(monkeypatch):
     fake = portal(monkeypatch)
     pdf, name = client.fetch_certificate("registration", token(4242))
-    assert pdf == PDF and name == "RERA-registration-certificate-4242.pdf"
+    assert pdf == PDF and name == "RERA Certificate - Project ID 4242.pdf"
     (m1, p1, kw1), (m2, p2, _) = fake.calls
     assert (m1, p1) == ("POST", "/SearchList/ShowCertificateIframe") and kw1["content"] == '{"ID": "%s"}' % token(4242)
     assert (m2, p2) == ("GET", "/SearchList/GetShowCertificateFileContent?QueryStringID=QUJD")
@@ -224,7 +224,17 @@ def test_routes_map_errors_as_plain_messages(monkeypatch, message, status):
 
 def test_certificate_route_serves_the_pdf_inline(monkeypatch):
     portal(monkeypatch)
-    r = _app().get("/api/rera/certificate", params={"kind": "registration", "token": token(77)})
+    r = _app().get("/api/rera/certificate", params={"kind": "registration", "token": token(77), "project": " Sample  Heights "})
     assert r.status_code == 200 and r.content == PDF
     assert r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == 'inline; filename="RERA-registration-certificate-77.pdf"'
+    assert r.headers["content-disposition"] == 'inline; filename="RERA Certificate - Sample Heights.pdf"'
+
+
+@pytest.mark.parametrize("kind, project, name", [
+    ("extension", "Test Meadows & Villas", "RERA Certificate - Test Meadows & Villas - Extension certificate.pdf"),
+    ("special-extension", "", "RERA Certificate - Project ID 77 - 4-month extension.pdf"),
+    ("registration", '<b>"x"</b>', "RERA Certificate - Project ID 77.pdf"),  # not a project's name: the ID instead
+])
+def test_certificate_is_named_after_its_project(monkeypatch, kind, project, name):
+    portal(monkeypatch)
+    assert client.fetch_certificate(kind, token(77), project)[1] == name

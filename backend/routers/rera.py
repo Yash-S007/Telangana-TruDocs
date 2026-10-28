@@ -35,8 +35,8 @@ def search(req: SearchRequest):
 # The certificate loads into the page's preview, so errors are JSON like the search's.
 @router.get("/certificate")
 @_threads.route
-def certificate(kind: str, token: str):
+def certificate(kind: str, token: str, project: str = ""):
     try:
-        return pdf.response(*rera_client.fetch_certificate(kind, token))
+        return pdf.response(*rera_client.fetch_certificate(kind, token, project))
     except PortalError as exc:
         raise HTTPException(status_code=_status(exc), detail=exc.user_message)
