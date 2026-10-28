@@ -9,6 +9,7 @@ import { useRequest } from '../../utils/useRequest.js'
 
 export default function AdangalView() {
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, error, cancel, fail, reset } = request
   const [village, setVillage] = useState(null)
   const [surveys, setSurveys] = useState({ loading: false, list: [] })
@@ -93,9 +94,10 @@ export default function AdangalView() {
             <i className="ti ti-notebook" /> Get Adangal
           </button>
         </form>
+        <div ref={setSlot} />
       </div>
 
-      {result && <DocumentResult key={result.filename} first={result} />}
+      {result && <DocumentResult key={result.filename} first={result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Fetching the Adangal from the Revenue portal…" />
     </div>

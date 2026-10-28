@@ -36,7 +36,7 @@ def test_pdf_shows_the_pahani_tables(monkeypatch):
     monkeypatch.setattr(client, "fetch_adangal", lambda **_: {"found": True, "raw_tables_html": [PAHANI]})
     r = _app().post("/api/adangal/pdf", json=SEARCH)
     assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == 'inline; filename="Adangal-Ankapoor-survey-999-Z.pdf"'
+    assert r.headers["content-disposition"] == 'inline; filename="Adangal Extract (Pahani) - Ankapoor - Survey No. 999-Z.pdf"'
     text = b" ".join(re.findall(rb"\(((?:[^()\\]|\\.)*)\) Tj", r.content))
     for shown in (b"Adangal \\(Pahani\\)", b"Survey No. 999/Z", b"Ankapoor village, Adilabad \\(Rural\\) mandal, Adilabad district",
                   b"Pattadar", b"SAMPLE & OWNER", b"999/Y", b"0.20", b"not a certified copy"):
@@ -47,7 +47,7 @@ def test_pdf_shows_the_pahani_tables(monkeypatch):
 def test_khata_search_and_unknown_village(monkeypatch):
     monkeypatch.setattr(client, "fetch_adangal", lambda **_: {"found": True, "raw_tables_html": [PAHANI]})
     content, name = client.fetch_adangal_pdf(**{**SEARCH, "village_id": "999999", "option": "khataNo", "survey_or_khata_value": "77"})
-    assert name == "Adangal-khata-77.pdf" and content.startswith(b"%PDF-")
+    assert name == "Adangal Extract (Pahani) - Khata No. 77.pdf" and content.startswith(b"%PDF-")
 
 
 @pytest.mark.parametrize("message, status", [(NOT_FOUND, 404), (BAD_INPUT, 400), (PORTAL_DOWN, 502)])

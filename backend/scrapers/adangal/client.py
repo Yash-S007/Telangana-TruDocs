@@ -288,7 +288,7 @@ def fetch_adangal_pdf(**fields) -> tuple:
     content = pdf.build(story, title=f"Adangal (Pahani): {searched}", pagesize=landscape(A4),
                         note="For reference only: not a certified copy of the Pahani.",
                         source="CCLA Telangana land records (ccla.telangana.gov.in)")
-    return content, pdf.filename("Adangal", name("village") if village else "", kind.lower(), number)
+    return pdf.document(content, "Adangal Extract (Pahani)", name("village") if village else "", f"{kind} No. {number}")
 
 
 def _table_rows(html: str) -> list:
