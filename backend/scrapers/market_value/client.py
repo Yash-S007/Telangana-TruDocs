@@ -302,10 +302,10 @@ def fetch_rates_pdf(**fields) -> tuple:
     rows = fetch_rates(**fields)["rows"]  # checks the fields
     name = lambda key: " ".join(fields.get(key, "").split())
     if fields["district_id"].strip() == HYDERABAD:
-        place, where, parts = name("locality"), "Hyderabad (GHMC)", (name("locality"),)
+        place, where, parts = name("locality"), "Hyderabad (GHMC)", (name("locality"), "Hyderabad")
     else:
         v = market_value_village(fields["village_id"].strip())  # fetch_rates found it on our list
-        place, where, parts = v["village"], f"{v['mandal']} mandal", (v["village"], v["mandal"])
+        place, where, parts = v["village"], f"{v['mandal']} mandal", (v["village"], f"{v['mandal']} mandal")
     p = pdf.para
     story = [p(f"Market Value Land Rates: {place}", "title"), p(f"{where}, Telangana", "sub"),
              p(f"{len(rows)} land rate{'' if len(rows) == 1 else 's'}", "head"),
@@ -315,4 +315,4 @@ def fetch_rates_pdf(**fields) -> tuple:
     content = pdf.build(story, title=f"Market value land rates: {place}",
                         note="For reference only: not a certified copy. The official rates are on the IGRS website.",
                         source="IGRS Telangana, Registration and Stamps department (registration.telangana.gov.in)")
-    return content, pdf.filename("Market-value", *parts)
+    return pdf.document(content, "Land Market Value", *parts)

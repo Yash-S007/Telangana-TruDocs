@@ -136,6 +136,7 @@ function HyderabadFields({ request }) {
 export default function MarketValueView() {
   const [area, setArea] = useState('village')
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, cancel } = request
 
   return (
@@ -170,9 +171,10 @@ export default function MarketValueView() {
           </div>
         </div>
         {area === 'village' ? <VillageFields request={request} /> : <HyderabadFields request={request} />}
+        <div ref={setSlot} />
       </div>
 
-      {result && <DocumentResult key={result.filename} first={result} />}
+      {result && <DocumentResult key={result.filename} first={result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Fetching land rates from IGRS…" />
     </div>

@@ -181,7 +181,7 @@ def test_pdf_shows_the_rates_and_reuses_the_search(monkeypatch):
     assert _app().post("/api/market-value/search", json=village).status_code == 200
     resp = _app().post("/api/market-value/pdf", json=village)
     assert resp.status_code == 200 and resp.headers["content-type"] == "application/pdf"
-    assert resp.headers["content-disposition"] == 'inline; filename="Market-value-KOKAPET-GANDIPET.pdf"'
+    assert resp.headers["content-disposition"] == 'inline; filename="Land Market Value - KOKAPET - GANDIPET mandal.pdf"'
     for text in ("Market Value Land Rates: KOKAPET", "GANDIPET mandal, Telangana", "2 land rates", "LAND VALUE",
                  "KOKAPET CHANDRA REDDY", "KOKAPET VILLAGE MAIN ROADS", "47,600", "27,000", "05/06/2026", "Only For Information"):
         assert text.encode() in resp.content, text
@@ -190,5 +190,5 @@ def test_pdf_shows_the_rates_and_reuses_the_search(monkeypatch):
     locality = dict(district_id="16_1", division_id="1600001", locality_id="1611", locality="BANJARA HILLS")
     content, name = client.fetch_rates_pdf(**locality)
     client._rates.cache_clear()
-    assert name == "Market-value-BANJARA-HILLS.pdf" and b"Market Value Land Rates: BANJARA HILLS" in content
+    assert name == "Land Market Value - BANJARA HILLS - Hyderabad.pdf" and b"Market Value Land Rates: BANJARA HILLS" in content
     assert b"Hyderabad \\(GHMC\\), Telangana" in content
