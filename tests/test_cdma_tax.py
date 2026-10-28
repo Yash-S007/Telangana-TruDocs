@@ -1,5 +1,6 @@
 """CDMA Tax Receipt tests. Synthetic pages shaped like the portal's (made-up owners, PTINs and
 receipt numbers, no real records); the portal itself is faked."""
+import io
 import json
 import re
 import socket
@@ -12,6 +13,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pypdf import PdfReader
 from reportlab import rl_config
 
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
@@ -295,7 +297,7 @@ def test_towns_list_covers_every_cdma_district():
 def test_receipt_pdf_is_the_portals_own(monkeypatch):
     fake = portal(monkeypatch)
     pdf, name = client.fetch_receipt_pdf(PTIN, "190924000000000000001", "111320240919000001")
-    assert pdf == PDF and name == f"CDMA-tax-receipt-{PTIN}-190924000000000000001.pdf"
+    assert pdf == PDF and name == f"Property Tax Receipt (CDMA) - PTIN {PTIN} - Receipt No. 190924000000000000001.pdf"
     (p1, b1), (p2, form) = fake.calls
     assert (p1, b1) == ("/GetPTForDownload", {"MID": "190924000000000000001", "PTINNO": PTIN, "SLNO": "111320240919000001"})
     # what the receipt page's own script posts: the Grid's inner HTML and the QR code
@@ -360,10 +362,10 @@ def test_routes_serve_lookup_towns_and_the_pdf_inline(monkeypatch):
     assert len(app.get("/api/cdma-tax/towns").json()) == 32
     r = app.get("/api/cdma-tax/receipt", params={"ptin": PTIN, "receipt_no": "043700", "slno": "11130000000001"})
     assert r.status_code == 200 and r.content == PDF and r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == f'inline; filename="CDMA-tax-receipt-{PTIN}-043700.pdf"'
+    assert r.headers["content-disposition"] == f'inline; filename="Property Tax Receipt (CDMA) - PTIN {PTIN} - Receipt No. 043700.pdf"'
     r = app.get(f"/api/cdma-tax/pdf/{PTIN}")
     assert r.status_code == 200 and r.content.startswith(b"%PDF-") and r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == f'inline; filename="CDMA-property-tax-{PTIN}.pdf"'
+    assert r.headers["content-disposition"] == f'inline; filename="Property Tax Receipt (CDMA) - PTIN {PTIN} - Siddipet Municipality.pdf"'
 
 
 def pdf_pages(pdf: bytes) -> int:
@@ -375,8 +377,9 @@ def test_details_pdf_shows_what_the_page_shows(monkeypatch):
     monkeypatch.setattr(rl_config, "pageCompression", 0)  # page text readable in the bytes
     client.fetch_property(PTIN)
     pdf, name = client.fetch_property_pdf(PTIN)
-    assert pdf.startswith(b"%PDF-") and name == f"CDMA-property-tax-{PTIN}.pdf" and pdf_pages(pdf) == 1
-    assert f"(Property tax details: PTIN {PTIN})".encode() in pdf  # the document title
+    assert pdf.startswith(b"%PDF-") and name == f"Property Tax Receipt (CDMA) - PTIN {PTIN} - Siddipet Municipality.pdf"
+    assert pdf_pages(pdf) == 2  # our front page, then the details
+    assert PdfReader(io.BytesIO(pdf)).metadata.title == f"Property tax details: PTIN {PTIN}"  # the document title
     for text in (f"Property Tax Details: PTIN {PTIN}", "Siddipet Municipality, Telangana", "SAMPLE OWNER", "9-9-99", "Sample Nagar",
                  "Residential", "Tax due as on 22/10/2026", "Rs. 500", "Rs. 40", "Rs. 600", "Rs. 1,140", "2 tax receipts",
                  "190924000000000000001", "Rs. 1,200", "2023-2024-1 to 2024-2025-2", "043700", "For reference only"):

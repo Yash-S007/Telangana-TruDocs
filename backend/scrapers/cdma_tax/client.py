@@ -32,6 +32,7 @@ BASE_URL = "https://cdma.cgg.gov.in/CDMA_ARBS/CDMA_PG"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 TOWNS_FILE = Path(__file__).resolve().parents[2] / "data" / "cdma_towns.json"
 MAX_FOUND = 100  # a 3-letter owner name can match hundreds of properties in a big town
+TITLE = "Property Tax Receipt (CDMA)"  # the tool's name, on its PDFs' front page
 
 _throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minute to this portal
 
@@ -247,14 +248,14 @@ def fetch_receipt_pdf(ptin: str, receipt_no: str, slno: str) -> tuple:
         raise PortalError(BAD_INPUT, "invalid receipt")
     bucket = int(time.time() // _RECEIPT_SECONDS)
     key = (ptin, receipt_no, slno, bucket)
-    pdf = single_flight(("cdma-tax-receipt",) + key, lambda: _receipt_pdf(*key))
-    return pdf, f"CDMA-tax-receipt-{ptin}-{receipt_no.replace('/', '-')}.pdf"
+    return single_flight(("cdma-tax-receipt",) + key, lambda: _receipt_pdf(*key))
 
 
 # shortcut: keeps the last 64 receipts (~150 KB each) for 6 hours; move to disk or Redis if
-# many people open the same receipts or we run more than one instance.
+# many people open the same receipts or we run more than one instance. Kept with the front page,
+# so everyone asking for one shares one copy.
 @lru_cache(maxsize=64)
-def _receipt_pdf(ptin: str, receipt_no: str, slno: str, _bucket: int) -> bytes:
+def _receipt_pdf(ptin: str, receipt_no: str, slno: str, _bucket: int) -> tuple:
     with _client(timeout=120.0) as client:  # the portal takes 14-50 s to build a receipt
         page = _send(client, "/GetPTForDownload", {"MID": receipt_no, "PTINNO": ptin, "SLNO": slno})
         grid, qr = _receipt_form(page, ptin)
@@ -268,7 +269,7 @@ def _receipt_pdf(ptin: str, receipt_no: str, slno: str, _bucket: int) -> bytes:
             raise PortalError(PORTAL_DOWN, str(exc)) from exc
     if not resp.content.startswith(b"%PDF"):
         raise PortalError(PORTAL_DOWN, "the portal's receipt download is not a PDF")
-    return resp.content
+    return pdf.document(resp.content, TITLE, f"PTIN {ptin}", f"Receipt No. {receipt_no}")
 
 
 def _receipt_form(page: str, ptin: str) -> tuple:
@@ -293,7 +294,7 @@ def fetch_property_pdf(ptin: str) -> tuple:
     """(pdf bytes, filename): what the tool shows for a PTIN (owner, tax due, receipts) as a PDF.
     It reuses the look-up, so right after one it costs the portal nothing."""
     data = fetch_property(ptin)
-    return _property_pdf(data, datetime.now(pdf.IST)), f"CDMA-property-tax-{data['ptin']}.pdf"
+    return pdf.document(_property_pdf(data, datetime.now(pdf.IST)), TITLE, f"PTIN {data['ptin']}", (data["property"] or {}).get("town"))
 
 
 def _property_pdf(data: dict, now: datetime) -> bytes:

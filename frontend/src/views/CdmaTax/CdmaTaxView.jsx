@@ -14,7 +14,7 @@ const MODES = [
 const rupees = (n) => (n == null ? '-' : `₹${Number(n).toLocaleString('en-IN')}`)
 
 // Like the Karnataka EC tool: our details PDF first, then any official receipt picked from the list.
-function CdmaResult({ result }) {
+function CdmaResult({ result, slot }) {
   const { ptin, property, receipts } = result
   const docs = [
     { key: 'details', label: 'Property tax details', meta: 'Owner, tax due and every receipt, for reference', path: cdmaDetailsPath(ptin),
@@ -29,6 +29,7 @@ function CdmaResult({ result }) {
   ]
   return (
     <DocumentResult
+      slot={slot}
       first={result.doc}
       docs={docs}
       title={`PTIN ${ptin}${property?.town ? ` · ${property.town}` : ''}`}
@@ -127,6 +128,7 @@ export default function CdmaTaxView() {
   const [mode, setMode] = useState('ptin')
   const lookup = useRequest()
   const find = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const [picked, setPicked] = useState('')
   const busy = lookup.busy || find.busy
 
@@ -175,6 +177,7 @@ export default function CdmaTaxView() {
           </div>
         </div>
         {mode === 'ptin' ? <PtinFields lookup={lookup} /> : <FindFields find={find} lookup={lookup} />}
+        <div ref={setSlot} />
       </div>
 
       {found && (
@@ -198,7 +201,7 @@ export default function CdmaTaxView() {
         </div>
       )}
       {mode === 'find' && picked && lookup.error && <StatusMessage kind="error" message={lookup.error} />}
-      {lookup.result && <CdmaResult key={lookup.result.ptin} result={lookup.result} />}
+      {lookup.result && <CdmaResult key={lookup.result.ptin} result={lookup.result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={() => { lookup.cancel(); find.cancel() }}
         title={lookup.busy ? 'Getting the tax receipts from CDMA…' : 'Searching CDMA’s property records…'} />
