@@ -99,6 +99,11 @@
   margin-bottom: 14px;
 }
 
+/* the result's line and Download PDF at the foot of the search card, as on the Karnataka tools */
+.result-summary {
+  margin-top: 20px;
+}
+
 /* On phones a result table becomes one labelled card per row, so nothing scrolls sideways. */
 @media (max-width: 767px) {
   .result-table.stack-on-mobile {

@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import StatusMessage from './StatusMessage.jsx'
 import PDFViewer from './PDFViewer.jsx'
 import { getPdf } from '../../utils/api.js'
 import { downloadBlob } from '../../utils/pdf.js'
 
-// Like the Karnataka EC tools: "Found! <file>", Download PDF and the PDF preview, then a card with
-// the result's details and its other official documents, each of which switches the preview.
+// Like the Karnataka EC tools: a line saying the PDF is ready and Download PDF at the foot of the
+// search card, the PDF preview under it, then a card with the result's details and its other
+// official documents, each of which switches the preview.
+//   slot:       the element at the foot of the search card for that line (none: a card of its own)
 //   first:      the document fetched with the result, { key, blob, filename }, or null
 //   firstError: why that document couldn't be fetched, if it couldn't
 //   docs:       [{ key, label, meta?, path?, button?, loadingText? }] (no path = not online)
 //   children:   (button) => the tool's own lists, where button(doc) shows that document here
-export default function DocumentResult({ first, firstError = '', docs = [], title, facts = [], note, loadingText, emptyText, children }) {
+export default function DocumentResult({ slot, first, firstError = '', docs = [], title, facts = [], note, loadingText, emptyText, children }) {
   const [doc, setDoc] = useState(first)
   const [loading, setLoading] = useState(null)  // the document being fetched
   const [error, setError] = useState(firstError)
@@ -46,27 +49,31 @@ export default function DocumentResult({ first, firstError = '', docs = [], titl
     <span key={item.key} className="cell-muted">Not online</span>
   ))
 
+  const summary = (
+    <>
+      {loading ? (
+        <div className="status-msg info"><span className="inline-spinner" /><span>{loading.loadingText || loadingText}</span></div>
+      ) : error ? (
+        <StatusMessage kind="error" message={error} />
+      ) : doc ? (
+        <StatusMessage kind="success" message="Your PDF is ready. See it below, or download it." />
+      ) : (
+        <StatusMessage kind="info" message={emptyText} />
+      )}
+      {doc && (
+        <div className="result-actions">
+          <button type="button" className="download-btn" onClick={() => downloadBlob(doc.blob, doc.filename)}>
+            <i className="ti ti-download" /> Download PDF
+          </button>
+          <span className="result-meta">{doc.filename}</span>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <>
-      <div className="card result-card">
-        {loading ? (
-          <div className="status-msg info"><span className="inline-spinner" /><span>{loading.loadingText || loadingText}</span></div>
-        ) : error ? (
-          <StatusMessage kind="error" message={error} />
-        ) : doc ? (
-          <StatusMessage kind="success" message={`Found! ${doc.filename}`} />
-        ) : (
-          <StatusMessage kind="info" message={emptyText} />
-        )}
-        {doc && (
-          <div className="result-actions">
-            <button type="button" className="download-btn" onClick={() => downloadBlob(doc.blob, doc.filename)}>
-              <i className="ti ti-download" /> Download PDF
-            </button>
-            <span className="result-meta">{doc.filename}</span>
-          </div>
-        )}
-      </div>
+      {slot ? createPortal(<div className="result-summary">{summary}</div>, slot) : <div className="card result-card">{summary}</div>}
 
       {doc && <PDFViewer blob={doc.blob} filename={doc.filename} />}
 
