@@ -168,6 +168,7 @@ function PassbookFields({ request }) {
 export default function LandDetailsView() {
   const [mode, setMode] = useState('survey')
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, cancel } = request
 
   return (
@@ -202,9 +203,10 @@ export default function LandDetailsView() {
           </div>
         </div>
         {mode === 'survey' ? <SurveyFields request={request} /> : <PassbookFields request={request} />}
+        <div ref={setSlot} />
       </div>
 
-      {result && <DocumentResult key={result.filename} first={result} />}
+      {result && <DocumentResult key={result.filename} first={result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Fetching the land record from Bhu Bharati…" />
     </div>

@@ -218,7 +218,7 @@ def test_record_pdf_shows_the_fields_and_where(monkeypatch):
     r = _app().post("/api/pattadar/pdf", json={"district_id": "13", "mandal_id": "261", "village_id": "1301023", "survey_no": " 1/2అ ",
                                                "khata_id": "337"})
     assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == 'inline; filename="Land-details-Ankapoor-survey-1-2.pdf"'
+    assert r.headers["content-disposition"] == 'inline; filename="Land Details Search - Ankapoor - Survey No. 1-2.pdf"'
     text = _shown_text(r.content)
     for shown in (b"Land Details \\(Bhu Bharati\\)", b"Pattadar / Authorised Person Name", b"Khata Number", b"337",
                   b"Not Prohibited", b"Total Extent \\(Ac. Gts\\)", b"1.20", b"Only For Information"):
@@ -230,7 +230,7 @@ def test_passbook_pdf_leaves_out_the_aadhaar_digits(monkeypatch):
     monkeypatch.setattr(rl_config, "pageCompression", 0)
     monkeypatch.setattr(client, "fetch_pattadar_by_passbook", lambda **_: client._parse_result(RESULT_HTML))
     r = _app().post("/api/pattadar/pdf-by-passbook", json={"passbook_no": "T12345678901", "aadhaar_last4": "9071"})
-    assert r.status_code == 200 and r.headers["content-disposition"] == 'inline; filename="Land-details-passbook-T12345678901.pdf"'
+    assert r.status_code == 200 and r.headers["content-disposition"] == 'inline; filename="Land Details Search - Passbook No. T12345678901.pdf"'
     text = _shown_text(r.content)
     assert b"Passbook No. T12345678901" in text and b"TEST OWNER" in text and b"9071" not in text
 

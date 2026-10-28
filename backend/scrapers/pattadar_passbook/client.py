@@ -409,14 +409,15 @@ def fetch_survey_pdf(**fields) -> tuple:
     village = pattadar_village(fields["village_id"].strip())
     name = lambda key: village[key].split("|")[0].strip()  # "Ankapoor|అంకాపూర్" → "Ankapoor"
     place = f" · {name('village')} village, {name('mandal')} mandal, {name('district')} district" if village else ""
-    return _record_pdf(record, f"Survey No. {survey}{place}"), pdf.filename("Land-details", name("village") if village else "", "survey", survey)
+    return pdf.document(_record_pdf(record, f"Survey No. {survey}{place}"), "Land Details Search",
+                        name("village") if village else "", f"Survey No. {survey}")
 
 
 def fetch_passbook_pdf(passbook_no: str, aadhaar_last4: str) -> tuple:
     """(pdf bytes, filename) for a passbook search. The Aadhaar digits are not printed."""
     record = fetch_pattadar_by_passbook(passbook_no=passbook_no, aadhaar_last4=aadhaar_last4)
     number = passbook_no.strip()
-    return _record_pdf(record, f"Passbook No. {number}"), pdf.filename("Land-details", "passbook", number)
+    return pdf.document(_record_pdf(record, f"Passbook No. {number}"), "Land Details Search", f"Passbook No. {number}")
 
 
 def _record_pdf(record: dict, searched: str) -> bytes:
