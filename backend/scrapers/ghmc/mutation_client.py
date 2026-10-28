@@ -101,5 +101,5 @@ def fetch_mutation_pdf(assessment_number: str) -> tuple:
     """(pdf bytes, filename): the status the tool shows, as our PDF."""
     record = fetch_mutation_status(assessment_number)
     number = assessment_number.strip()
-    return (record_pdf(record, title="GHMC Mutation Status", searched=f"Assessment No. {number}",
-                       source="GHMC mutation status (eodb.ghmc.gov.in)"), pdf.filename("GHMC-mutation", number))
+    return pdf.document(record_pdf(record, title="GHMC Mutation Status", searched=f"Assessment No. {number}",
+                                   source="GHMC mutation status (eodb.ghmc.gov.in)"), "GHMC Mutation Status", f"Assessment No. {number}")

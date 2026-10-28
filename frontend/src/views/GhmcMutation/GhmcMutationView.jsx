@@ -7,6 +7,7 @@ import { useRequest } from '../../utils/useRequest.js'
 
 export default function GhmcMutationView() {
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, error, cancel, fail, reset } = request
   const [assessmentNumber, setAssessmentNumber] = useState('')
 
@@ -54,9 +55,10 @@ export default function GhmcMutationView() {
             <i className="ti ti-home-2" /> Check Mutation Status
           </button>
         </form>
+        <div ref={setSlot} />
       </div>
 
-      {result && <DocumentResult key={result.filename} first={result} />}
+      {result && <DocumentResult key={result.filename} first={result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Checking GHMC…" />
     </div>

@@ -44,7 +44,7 @@ def test_mutation_pdf(monkeypatch):
     monkeypatch.setattr(mutation_client, "fetch_mutation_status", lambda number: MUTATION)
     r = _app().post("/api/ghmc/mutation/pdf", json={"assessment_number": " 1010199999 "})
     assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == 'inline; filename="GHMC-mutation-1010199999.pdf"'
+    assert r.headers["content-disposition"] == 'inline; filename="GHMC Mutation Status - Assessment No. 1010199999.pdf"'
     text = _shown_text(r.content)
     for shown in (b"GHMC Mutation Status", b"Assessment No. 1010199999", b"Owner Name", b"SAMPLE OWNER", b"Mutation Status",
                   b"Approved", b"not an official GHMC document"):
