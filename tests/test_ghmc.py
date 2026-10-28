@@ -56,7 +56,7 @@ def test_property_tax_pdf_names_the_circle(monkeypatch):
     monkeypatch.setattr(property_tax_client, "fetch_property_tax", lambda **_: TAX)
     monkeypatch.setattr(property_tax_client, "fetch_circles", lambda: [{"value": "17", "label": "Circle-17 (Khairatabad)"}])
     r = _app().post("/api/ghmc/property-tax/pdf", json={"circle": "17", "ptin": "1010199999"})
-    assert r.status_code == 200 and r.headers["content-disposition"] == 'inline; filename="GHMC-property-tax-1010199999.pdf"'
+    assert r.status_code == 200 and r.headers["content-disposition"] == 'inline; filename="GHMC Property Tax - PTIN 1010199999 - Circle-17 (Khairatabad) circle.pdf"'
     text = _shown_text(r.content)
     for shown in (b"GHMC Property Tax", b"PTIN 1010199999 \\267 Circle-17 \\(Khairatabad\\) circle", b"PTIN Number",
                   b"Owner Name", b"Door Number", b"9-9-99", b"Arrear amount", b"1,140"):

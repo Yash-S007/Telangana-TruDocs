@@ -159,5 +159,5 @@ def fetch_property_tax_pdf(*, circle: str, ptin: str = "", owner_name: str = "",
     query = (ptin or door_no or owner_name).strip()
     what = "PTIN" if ptin.strip() else "Door No." if door_no.strip() else "Owner"
     searched = f"{what} {query}" + (f" · {circle_name} circle" if circle_name else "")
-    return (record_pdf(record, title="GHMC Property Tax", searched=searched, source="GHMC property tax search (ghmc.gov.in)"),
-            pdf.filename("GHMC-property-tax", query))
+    return pdf.document(record_pdf(record, title="GHMC Property Tax", searched=searched, source="GHMC property tax search (ghmc.gov.in)"),
+                        "GHMC Property Tax", f"{what} {query}", f"{circle_name} circle" if circle_name else "")
