@@ -274,7 +274,7 @@ def test_pdf_shows_the_map_details_and_corners(monkeypatch):
     monkeypatch.setattr(rl_config, "pageCompression", 0)
     r = _app().post("/api/survey-map/pdf", json={"dmv": DMV, "survey_no": "10"})
     assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == 'inline; filename="Survey-map-Kokapet-10.pdf"'
+    assert r.headers["content-disposition"] == 'inline; filename="Survey Map - Kokapet - Survey No. 10.pdf"'
     for text in (b"(Survey Map: Survey No. 10)", b"(Kokapet village, Gandipet mandal, Rangareddy district, Telangana)",
                  b"(The satellite photo was unavailable when this PDF was made.)", b"(2 acres 14 guntas", b"(17.38045, 78.33045)",
                  b"(30 cm map, matched to sharp satellite imagery)", b"(4 corner points)", b"(P4)", b"(17.3809)", b"(2) Tj",

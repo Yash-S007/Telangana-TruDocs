@@ -44,7 +44,7 @@ def fetch_parcel_pdf(dmv: str, survey_no: str) -> tuple:
     content = pdf.build(story, title=f"Survey map: survey no. {data['survey_no']}, {data['village']}",
                         note="Approximate, for reference only: not a legal survey. Traced from digitised government village maps.",
                         source="TGRAC village maps; photo: Esri, Vantor, Earthstar Geographics")
-    return content, pdf.filename("Survey-map", data["village"], data["survey_no"])
+    return pdf.document(content, "Survey Map", data["village"], f"Survey No. {data['survey_no']}")
 
 
 def _frame(rings: list) -> tuple:

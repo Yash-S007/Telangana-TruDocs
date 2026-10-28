@@ -8,10 +8,10 @@ import { loadSurveyMapSurveys, lookupSurveyMap } from '../../utils/api.js'
 import { useRequest } from '../../utils/useRequest.js'
 
 // Everything the page showed is in the PDF; the page adds what a PDF can't: the spot in Google Maps.
-function SurveyMapResult({ result }) {
+function SurveyMapResult({ result, slot }) {
   const { lat, lon } = result.centre
   return (
-    <DocumentResult first={result.doc} firstError={result.docError}>
+    <DocumentResult first={result.doc} firstError={result.docError} slot={slot}>
       {() => (
         <div className="card result-card">
           <h3 className="result-heading">Survey No. {result.survey_no} · {result.village}, {result.mandal}, {result.district}</h3>
@@ -26,6 +26,7 @@ function SurveyMapResult({ result }) {
 
 export default function SurveyMapView() {
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, error, cancel, fail, reset } = request
   const [village, setVillage] = useState(null)
   const [surveys, setSurveys] = useState({ loading: false, list: [] })
@@ -92,9 +93,10 @@ export default function SurveyMapView() {
             <i className="ti ti-map-search" /> Show Survey Map
           </button>
         </form>
+        <div ref={setSlot} />
       </div>
 
-      {result && <SurveyMapResult key={`${result.village}-${result.survey_no}`} result={result} />}
+      {result && <SurveyMapResult key={`${result.village}-${result.survey_no}`} result={result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Drawing the survey map…" />
     </div>
