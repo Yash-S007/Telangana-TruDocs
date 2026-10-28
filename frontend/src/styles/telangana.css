@@ -460,7 +460,7 @@ a.download-btn {
   }
 }
 
-/* a list item with several actions (RERA: each certificate, the project page) under its text */
+/* a list item with several actions (RERA: each certificate) under its text */
 .doc-item-stacked {
   flex-direction: column;
   align-items: stretch;
@@ -471,10 +471,4 @@ a.download-btn {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.table-action-btn.secondary {
-  background: var(--surface);
-  border-color: var(--border-strong);
-  color: var(--text-muted);
 }

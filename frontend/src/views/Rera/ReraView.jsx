@@ -30,9 +30,6 @@ function ReraResults({ result, slot }) {
                 </div>
                 <div className="doc-actions">
                   {p.certificates.map((c) => button({ key: `${i}-${c.kind}`, path: reraCertificatePath(c.kind, c.token, p.project), button: CERTIFICATE_LABELS[c.kind] }))}
-                  {p.details_url && (
-                    <a className="table-action-btn secondary" href={p.details_url} target="_blank" rel="noopener noreferrer">Project details&nbsp;↗</a>
-                  )}
                 </div>
               </li>
             ))}
@@ -73,7 +70,6 @@ export default function ReraView() {
         <ul className="page-features">
           <li>Live from TG-RERA</li>
           <li>Registration and extension certificates as official PDFs</li>
-          <li>The project’s official page</li>
         </ul>
       </div>
 

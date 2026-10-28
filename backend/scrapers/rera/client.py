@@ -118,15 +118,14 @@ def _parse_results(html: str) -> dict:
             raise PortalError(NOT_FOUND, "no RERA project matches")
         raise PortalError(PORTAL_DOWN, "results page without a table")
     heads = [_cell_text(h).lower() for h in re.findall(r"<th[^>]*>(.*?)</th>", table.group(1), re.S)]
-    col = {name: heads.index(name) for name in ("project name", "promoter name", "view details", "last modified date") if name in heads}
-    if len(col) < 4:
+    col = {name: heads.index(name) for name in ("project name", "promoter name", "last modified date") if name in heads}
+    if len(col) < 3:
         raise PortalError(PORTAL_DOWN, f"unexpected result columns {heads}")
     projects = []
     for row in re.findall(r"<tr[^>]*>(.*?)</tr>", table.group(1), re.S):
         cells = re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)
         if len(cells) < len(heads):
             continue
-        details = re.search(r"""href=["'](/PrintPreview/PrintPreview\?q=[^"']+)["']""", cells[col["view details"]])
         certificates = [
             {"kind": _BUTTON_KIND[fn], "token": token}
             for token, fn in re.findall(r"""data-qstr=['"]([A-Za-z0-9+/=]+)['"]\s+onclick="return (\w+)\(this\);\"""", row)
@@ -136,7 +135,6 @@ def _parse_results(html: str) -> dict:
             "project": _cell_text(cells[col["project name"]]),
             "promoter": _cell_text(cells[col["promoter name"]]),
             "last_modified": _cell_text(cells[col["last modified date"]]).split(" ")[0],
-            "details_url": BASE_URL + unescape(details.group(1)) if details else "",
             "certificates": certificates,
         })
     if not projects:

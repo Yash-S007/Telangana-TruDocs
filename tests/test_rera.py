@@ -112,7 +112,6 @@ def test_results_become_projects_with_their_certificates(monkeypatch):
     first, second = r["projects"]
     assert first["project"] == "Sample Heights" and first["promoter"] == "SAMPLE BUILDERS"
     assert first["last_modified"] == "19/05/2025"
-    assert first["details_url"] == "https://rerait.telangana.gov.in/PrintPreview/PrintPreview?q=abc%2f1&x=1"
     assert [c["kind"] for c in first["certificates"]] == ["registration", "extension"]
     assert second["project"] == "Test Meadows & Villas"
     assert [c["kind"] for c in second["certificates"]] == ["registration", "special-extension"]
