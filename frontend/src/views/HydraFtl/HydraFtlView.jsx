@@ -37,7 +37,7 @@ function WaterBodies({ village, rows }) {
   )
 }
 
-function LakeResult({ lake }) {
+function LakeResult({ lake, slot }) {
   const facts = [
     ['Lake ID', lake.id],
     ['Village', [lake.village, lake.mandal, lake.district].filter(Boolean).join(', ')],
@@ -47,6 +47,7 @@ function LakeResult({ lake }) {
   return (
     <>
       <DocumentResult
+        slot={slot}
         first={lake.doc}
         docs={lake.documents.map((d) => ({ key: d.kind, label: d.label, path: lakeDocumentPath(lake.key, d.kind) }))}
         title={lake.name}
@@ -63,6 +64,7 @@ function LakeResult({ lake }) {
 export default function HydraFtlView() {
   const find = useRequest()
   const lookup = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const [mode, setMode] = useState('village')
   const [places, setPlaces] = useState({ loading: true, list: [] })
   const [place, setPlace] = useState({ district: '', mandal: '', village: '' })
@@ -182,6 +184,7 @@ export default function HydraFtlView() {
             <i className="ti ti-ripple" /> Find Lakes
           </button>
         </form>
+        <div ref={setSlot} />
       </div>
 
       {found && (
@@ -207,7 +210,7 @@ export default function HydraFtlView() {
         </div>
       )}
       {picked && lookup.error && <StatusMessage kind="error" message={lookup.error} />}
-      {picked && lookup.result && <LakeResult key={lookup.result.key} lake={lookup.result} />}
+      {picked && lookup.result && <LakeResult key={lookup.result.key} lake={lookup.result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={() => { find.cancel(); lookup.cancel() }}
         title={lookup.busy ? 'Getting the FTL map from HMDA…' : 'Finding lakes on HMDA’s list…'} />

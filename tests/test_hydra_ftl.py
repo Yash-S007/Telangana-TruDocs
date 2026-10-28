@@ -205,7 +205,7 @@ def test_water_bodies_need_the_same_mandal_when_two_villages_share_a_name():
 def test_a_document_is_found_by_the_rows_button_and_downloaded_over_https(monkeypatch):
     fake = portal(monkeypatch)
     pdf, name = client.fetch_document(KEY, "survey")
-    assert pdf == PDF and name == "HMDA-Lake-Sample-Cheruvu-9001-N-0001-SyNo.pdf"
+    assert pdf == PDF and name == "Hydra FTL Map - Sample Cheruvu - Lake ID 9001-N-0001 - Survey numbers in the FTL and buffer zone.pdf"
     form = next(d for m, _, d in fake.calls if m == "POST")
     assert form["__EVENTTARGET"] == "gv_showlakes$ctl02$btn_bufferzone" and form["__VIEWSTATE"] == "VS&state"
     assert fake.calls[-1][:2] == ("GET", "https://lakes.hmda.gov.in/hmdalake/9001-N-0001_Sample%20Cheruvu_SyNo.pdf")
@@ -309,7 +309,7 @@ def test_routes_serve_places_lakes_a_lake_and_the_pdf_inline(monkeypatch):
     assert app.get("/api/hydra-ftl/lake", params={"key": KEY}).json()["water_bodies"][0]["survey_no"] == "77"
     r = app.get("/api/hydra-ftl/document", params={"key": KEY, "kind": "ftl"})
     assert r.status_code == 200 and r.content == PDF and r.headers["content-type"] == "application/pdf"
-    assert r.headers["content-disposition"] == 'inline; filename="HMDA-Lake-Sample-Cheruvu-9001-N-0001-FTL.pdf"'
+    assert r.headers["content-disposition"] == 'inline; filename="Hydra FTL Map - Sample Cheruvu - Lake ID 9001-N-0001 - FTL and buffer zone map.pdf"'
 
 
 def test_the_bundled_survey_file_is_sound(monkeypatch):

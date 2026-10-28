@@ -21,6 +21,7 @@ from urllib.parse import unquote
 
 import httpx
 
+from backend.core import pdf
 from backend.core.errors import BAD_INPUT, NOT_FOUND, PORTAL_DOWN, PORTAL_TIMEOUT, PortalError
 from backend.core.rate_limit import RateLimiter
 from backend.core.single_flight import single_flight
@@ -34,11 +35,11 @@ _throttle = RateLimiter(min_interval_seconds=1.0)  # at most 60 requests a minut
 _CACHE_SECONDS = 6 * 3600  # new notifications are added a few times a year
 SEARCH_SHOWN = 50
 
-# kind → (the row's button, the file name's ending, label), in the order the preview offers them.
+# kind → (the row's button, label), in the order the preview offers them.
 DOCUMENTS = {
-    "ftl": ("btn_pros", "FTL", "FTL and buffer zone map"),
-    "cadastral": ("btn_plan", "CADASTRAL", "FTL on the village survey map (cadastral)"),
-    "survey": ("btn_bufferzone", "SyNo", "Survey numbers in the FTL and buffer zone"),
+    "ftl": ("btn_pros", "FTL and buffer zone map"),
+    "cadastral": ("btn_plan", "FTL on the village survey map (cadastral)"),
+    "survey": ("btn_bufferzone", "Survey numbers in the FTL and buffer zone"),
 }
 _PDF_LINK_RE = re.compile(r"https?://lakes\.hmda\.gov\.in/hmdalake/([^/?#]+)\.pdf", re.I)  # http: the portal's own redirects
 _TEXT_RE = re.compile(r"[A-Za-z0-9 /&().,'`_\"-]{1,80}")
@@ -80,7 +81,7 @@ def _parse(page: str) -> dict:
             continue
         lake = {"key": f"{lake_id}|{name}", "id": lake_id, "name": name, "district": district, "mandal": mandal,
                 "village": village, "preliminary": prelim, "final": final, "ctl": ctl.group(1),
-                "documents": [k for k, (button, _, _) in DOCUMENTS.items() if f"${button}'" in html.unescape(row)]}
+                "documents": [k for k, (button, _) in DOCUMENTS.items() if f"${button}'" in html.unescape(row)]}
         # A few lakes are listed twice; keep the fuller row (one may lack the final notification).
         old = lakes.get(lake["key"])
         if old is None or (len(lake["documents"]), bool(final)) > (len(old["documents"]), bool(old["final"])):
@@ -155,7 +156,7 @@ def fetch_lake(key: str) -> dict:
     """A lake's notification details, its official maps, and the survey of its village's water bodies."""
     lake = _lake(key)
     return {"source": "hmda_lakes", "found": True, **_public(lake),
-            "documents": [{"kind": k, "label": DOCUMENTS[k][2]} for k in lake["documents"]],
+            "documents": [{"kind": k, "label": DOCUMENTS[k][1]} for k in lake["documents"]],
             "water_bodies": water_bodies(lake["district"], lake["mandal"], lake["village"])}
 
 
@@ -167,9 +168,7 @@ def fetch_document(key: str, kind: str) -> tuple:
     if kind not in lake["documents"]:
         raise PortalError(NOT_FOUND, "HMDA has no such document for this lake")
     bucket = int(time.time() // _CACHE_SECONDS)
-    pdf = single_flight(("hydra-doc", lake["key"], kind, bucket), lambda: _document(lake["key"], kind, bucket))
-    safe = re.sub(r"[^A-Za-z0-9]+", "-", f"{lake['name']} {lake['id']}").strip("-")
-    return pdf, f"HMDA-Lake-{safe}-{DOCUMENTS[kind][1]}.pdf"
+    return single_flight(("hydra-doc", lake["key"], kind, bucket), lambda: _document(lake["key"], kind, bucket))
 
 
 def _for_lake(filename: str, lake: dict) -> bool:
@@ -182,9 +181,9 @@ def _for_lake(filename: str, lake: dict) -> bool:
 
 
 # shortcut: keeps the last 16 PDFs (0.1-4 MB each) for 6 hours; move to disk if many people
-# open the same lakes.
+# open the same lakes. Kept with the front page, so everyone asking for one shares one copy.
 @lru_cache(maxsize=16)
-def _document(key: str, kind: str, _bucket: int) -> bytes:
+def _document(key: str, kind: str, _bucket: int) -> tuple:
     for attempt in range(2):
         page = _page()
         lake = page["lakes"].get(key)
@@ -196,12 +195,12 @@ def _document(key: str, kind: str, _bucket: int) -> bytes:
             resp = _send(client, "POST", BASE_URL, data=form)
             link = _PDF_LINK_RE.fullmatch(resp.headers.get("location", "")) if resp.status_code == 302 else None
             if link and _for_lake(unquote(link[1]), lake):
-                pdf = _send(client, "GET", FILES_URL + link[1] + ".pdf")
-                if pdf.status_code == 404:
+                file = _send(client, "GET", FILES_URL + link[1] + ".pdf")
+                if file.status_code == 404:
                     raise PortalError(NOT_FOUND, "HMDA lists this PDF but its file is missing")
-                if pdf.status_code != 200 or not pdf.content.startswith(b"%PDF"):
-                    raise PortalError(PORTAL_DOWN, f"PDF HTTP {pdf.status_code}")
-                return pdf.content
+                if file.status_code != 200 or not file.content.startswith(b"%PDF"):
+                    raise PortalError(PORTAL_DOWN, f"PDF HTTP {file.status_code}")
+                return pdf.document(file.content, "Hydra FTL Map", lake["name"], f"Lake ID {lake['id']}", DOCUMENTS[kind][1])
         # The saved page may be out of date (HMDA added lakes): read it again once and retry.
         _load_page.cache_clear()
     raise PortalError(PORTAL_DOWN, f"postback gave HTTP {resp.status_code}, no PDF link")
