@@ -154,11 +154,11 @@ function VillageMap({ result }) {
 }
 
 // The A3 PDF in the preview, then what a PDF can't do: the map to zoom into.
-function VillageMapResult({ result }) {
+function VillageMapResult({ result, slot }) {
   const surveys = result.parcels.filter((p) => p.survey_no).length
   const older = result.map_version === '2.5m'
   return (
-    <DocumentResult first={result.doc} firstError={result.docError}>
+    <DocumentResult first={result.doc} firstError={result.docError} slot={slot}>
       {() => (
         <div className="card result-card map-card">
           <h3 className="result-heading">{result.village}, {result.mandal}, {result.district} · {surveys} survey numbers</h3>
@@ -175,6 +175,7 @@ function VillageMapResult({ result }) {
 
 export default function VillageMapView() {
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, error, cancel, fail, reset } = request
   const [village, setVillage] = useState(null)
 
@@ -213,9 +214,10 @@ export default function VillageMapView() {
             <i className="ti ti-map-2" /> Show Village Map
           </button>
         </form>
+        <div ref={setSlot} />
       </div>
 
-      {result && <VillageMapResult key={result.dmv} result={result} />}
+      {result && <VillageMapResult key={result.dmv} result={result} slot={slot} />}
 
       <LoaderModal visible={busy} onCancel={cancel} title="Drawing the village map…" />
     </div>

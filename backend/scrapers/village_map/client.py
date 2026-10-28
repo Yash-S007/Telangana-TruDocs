@@ -7,7 +7,6 @@ village name, a north arrow and a "for reference only" note. It is not a certifi
 """
 import io
 import math
-import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -21,6 +20,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+from backend.core import pdf
 from backend.core.hierarchy import survey_map_village
 from backend.core.single_flight import single_flight
 from backend.scrapers.survey_map import client as survey_map
@@ -73,15 +73,14 @@ def fetch_village_map_pdf(dmv: str) -> tuple:
     """(pdf bytes, filename). Identical requests at once share one build; repeats are cached."""
     data = fetch_village_map(dmv)
     bucket = int(time.time() // _CACHE_SECONDS)
-    pdf = single_flight(("village-map-pdf", data["dmv"], bucket), lambda: _pdf(data["dmv"], bucket))
-    name = re.sub(r"[^A-Za-z0-9]+", "-", data["village"]).strip("-") or "village"
-    return pdf, f"Village-map-{name}-{data['dmv']}.pdf"
+    return single_flight(("village-map-pdf", data["dmv"], bucket), lambda: _pdf(data["dmv"], bucket))
 
 
 # shortcut: keeps the last 8 PDFs (1-3 MB each, mostly the photo) for 6 hours; move to disk
-# or object storage if many people download many different villages.
+# or object storage if many people download many different villages. Kept with the front page,
+# so everyone asking for one shares one copy.
 @lru_cache(maxsize=8)
-def _pdf(dmv: str, _bucket: int) -> bytes:
+def _pdf(dmv: str, _bucket: int) -> tuple:
     data = fetch_village_map(dmv)
     page_w, page_h = landscape(A3)
     xs, ys = zip(*(_merc(x, y) for p in data["parcels"] for ring in p["rings"] for x, y in ring))
@@ -91,7 +90,8 @@ def _pdf(dmv: str, _bucket: int) -> bytes:
     frame = (MARGIN, MARGIN + FOOTER, page_w - 2 * MARGIN, page_h - 2 * MARGIN - HEADER - FOOTER)
     box = _fit(min(xs), min(ys), max(xs), max(ys), frame[2] / frame[3])
     with _builds:
-        return _draw(data, (page_w, page_h), frame, box, _satellite(box))
+        content = _draw(data, (page_w, page_h), frame, box, _satellite(box))
+    return pdf.document(content, "Village Map", data["village"], f"{data['mandal']} mandal")
 
 
 def _merc(lon: float, lat: float) -> tuple:

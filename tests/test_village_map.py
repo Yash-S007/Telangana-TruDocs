@@ -9,6 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
+from pypdf import PdfReader
 
 from backend.core.errors import BAD_INPUT, PortalError
 from backend.routers import village_map as village_map_router
@@ -88,8 +89,8 @@ def test_village_without_a_map_is_a_friendly_not_found(portal):
 def test_pdf_has_a_clear_name(portal, photo):
     resp = _app().get(f"/api/village-map/pdf/{DMV}")
     assert resp.status_code == 200 and resp.headers["content-type"] == "application/pdf"
-    assert resp.headers["content-disposition"] == 'inline; filename="Village-map-Kokapet-1516004.pdf"'
-    assert resp.content.startswith(b"%PDF-") and b"(Village map: Kokapet)" in resp.content
+    assert resp.headers["content-disposition"] == 'inline; filename="Village Map - Kokapet - Gandipet mandal.pdf"'
+    assert resp.content.startswith(b"%PDF-") and PdfReader(io.BytesIO(resp.content)).metadata.title == "Village map: Kokapet"
     (box,) = photo
     assert (box[2] - box[0]) / (box[3] - box[1]) > 1.3  # a landscape A3 frame for a wide village
 
@@ -97,7 +98,7 @@ def test_pdf_has_a_clear_name(portal, photo):
 def test_pdf_is_still_made_when_the_photo_is_unavailable(portal, monkeypatch):
     monkeypatch.setattr(client, "_satellite", lambda box: None)
     pdf, name = client.fetch_village_map_pdf(DMV)
-    assert pdf.startswith(b"%PDF-") and name == "Village-map-Kokapet-1516004.pdf"
+    assert pdf.startswith(b"%PDF-") and name == "Village Map - Kokapet - Gandipet mandal.pdf"
 
 
 def test_pdf_errors_are_a_plain_message(photo, monkeypatch):
