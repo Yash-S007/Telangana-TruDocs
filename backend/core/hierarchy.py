@@ -87,6 +87,15 @@ def market_value_village(village_id: str) -> dict | None:
     return _market_value_by_id().get(village_id)
 
 
+@lru_cache(maxsize=1)
+def _prohibited_lands_by_id() -> dict[str, dict]:
+    return {r["village_id"]: r for r in _prohibited_lands()}
+
+
+def prohibited_lands_village(village_id: str) -> dict | None:
+    return _prohibited_lands_by_id().get(village_id)
+
+
 def search_pattadar_villages(q: str, limit: int = 15) -> list[dict]:
     if len(q) < 2:
         return []

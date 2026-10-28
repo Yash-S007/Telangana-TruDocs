@@ -75,8 +75,8 @@ def category_pdf(district_id: str, mandal_id: str, village_id: str, kind: str, f
 
 @router.get("/order")
 @_threads.route
-def order_pdf(order_id: str, flag: str):
+def order_pdf(order_id: str, flag: str, order_no: str = ""):
     try:
-        return pdf.response(*pl_client.fetch_order_pdf(order_id, flag))
+        return pdf.response(*pl_client.fetch_order_pdf(order_id, flag, order_no))
     except PortalError as exc:
         raise _http_error(exc)

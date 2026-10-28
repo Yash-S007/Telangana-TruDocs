@@ -128,7 +128,7 @@ function SurveyList({ location, kind, button }) {
                       <span>
                         {r.order_no}
                         {r.order_date && <><br />{r.order_date}</>}
-                        {r.order_id && <><br />{button({ key: `order-${r.order_id}`, path: prohibitedOrderPath(r.order_id, r.order_flag), button: 'Show order' })}</>}
+                        {r.order_id && <><br />{button({ key: `order-${r.order_id}`, path: prohibitedOrderPath(r.order_id, r.order_flag, r.order_no), button: 'Show order' })}</>}
                       </span>
                     </td>
                     <td data-label="Volume / Page">{r.volume_page}</td>
@@ -146,6 +146,7 @@ function SurveyList({ location, kind, button }) {
 
 export default function ProhibitedLandsView() {
   const request = useRequest()
+  const [slot, setSlot] = useState(null)  // the search card's foot, where the result's line goes
   const { result, busy, error, cancel, fail, reset } = request
   const [village, setVillage] = useState(null)
   const [sros, setSros] = useState({ loading: false, list: [] })
@@ -219,10 +220,11 @@ export default function ProhibitedLandsView() {
             <i className="ti ti-ban" /> Check Prohibited Lands
           </button>
         </form>
+        <div ref={setSlot} />
       </div>
 
       {result?.categories && (
-        <DocumentResult key={new URLSearchParams(result.location).toString()} first={result.doc} firstError={result.docError}
+        <DocumentResult key={new URLSearchParams(result.location).toString()} first={result.doc} firstError={result.docError} slot={slot}
           loadingText="Getting the official PDF from IGRS…" emptyText="None of the 22-A lists for this place is online.">
           {(button) => (
             <>

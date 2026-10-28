@@ -161,8 +161,9 @@ export const loadProhibitedSurveyList = (location, kind, opts) =>
 export const prohibitedPdfPath = (location, kind, formtype) =>
   `/api/prohibited-lands/pdf?${new URLSearchParams({ ...location, kind, formtype })}`
 
-export const prohibitedOrderPath = (orderId, flag) =>
-  `/api/prohibited-lands/order?${new URLSearchParams({ order_id: orderId, flag })}`
+// The order's number as the list shows it names the PDF and its front page.
+export const prohibitedOrderPath = (orderId, flag, orderNo) =>
+  `/api/prohibited-lands/order?${new URLSearchParams({ order_id: orderId, flag, order_no: orderNo || '' })}`
 
 // The place's 22-A lists and the first one that's online, so the result opens with its preview.
 export async function lookupProhibited(location, opts) {
